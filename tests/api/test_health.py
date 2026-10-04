@@ -15,8 +15,8 @@ from app.main import app
 
 SRC_APP_DIR = Path(__file__).resolve().parents[2] / "src" / "app"
 
-# Imports prohibidos en esta fase: cero persistencia, cero MongoDB, cero motor/PDF.
-FORBIDDEN_MODULES = ("pymongo", "motor", "mongodb", "bson", "pymupdf", "fitz")
+# Imports prohibidos: cero persistencia/MongoDB (el motor PDF vive en infrastructure).
+FORBIDDEN_MODULES = ("pymongo", "motor", "mongodb", "bson")
 
 
 @pytest.fixture()

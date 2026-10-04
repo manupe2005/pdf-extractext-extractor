@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     app_name: str = "pdf-extractext-extractor"
     app_version: str = "0.1.0"
     port: int = 8000
+    admission_slots: int = 2
+    admission_timeout_seconds: float = 0.5
 
 
 settings = Settings()
