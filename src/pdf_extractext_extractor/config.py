@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "pdf-extractext-extractor"
     app_version: str = "0.1.0"
     port: int = 8000
+    max_upload_bytes: int = 64 * 1024 * 1024
 
 
 settings = Settings()

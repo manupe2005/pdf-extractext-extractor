@@ -16,6 +16,24 @@ La configuración se define mediante variables de entorno (ver `src/pdf_extracte
 | `APP_NAME`    | `pdf-extractext-extractor`  | Nombre del servicio  |
 | `APP_VERSION` | `0.1.0`                     | Versión              |
 | `PORT`        | `8000`                      | Puerto de escucha    |
+| `MAX_UPLOAD_BYTES` | `67108864`              | Límite defensivo del cuerpo de la petición (bytes) |
+
+## API
+
+### `POST /extract`
+
+Recibe un PDF por `multipart/form-data` (campo `file`) y lo procesa 100% en
+memoria, sin tocar el disco. Fase actual: recepción.
+
+- `200` -> `{"filename": "<original>", "size": <bytes>}` (la extracción de
+  texto y el checksum se agregan en issues posteriores sobre esta misma ruta).
+- `400` -> `{"code": "INVALID_REQUEST", "message": "<detalle>"}` cuando falla
+  la validación estructural: falta el campo `file`, el archivo está vacío, el
+  multipart está corrupto o el cuerpo supera el límite defensivo.
+
+```bash
+curl -F "file=@documento.pdf" http://localhost:8000/extract
+```
 
 ## Desarrollo
 
@@ -54,7 +72,11 @@ docker run -p 8000:8000 pdf-extractext-extraction
 │   └── pdf_extractext_extractor/
 │       ├── __init__.py
 │       ├── config.py                 # Settings por variables de entorno
+│       ├── errors.py                 # Contrato de error 400 INVALID_REQUEST
+│       ├── extraction.py             # POST /extract (recepción multipart)
 │       └── main.py                   # App FastAPI + GET /health
 └── tests/
-    └── test_health.py                # Test unitario de /health
+    ├── conftest.py                   # Fixture multipart válida (compartible)
+    ├── test_health.py                # /health + guardas de arquitectura
+    └── test_extraction.py            # POST /extract
 ```
