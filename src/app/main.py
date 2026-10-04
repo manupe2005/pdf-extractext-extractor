@@ -6,8 +6,6 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 
-from app.api.error_handlers import register_error_handlers
-from app.api.extraction import router as extraction_router
 from app.api.health import router as health_router
 from app.core.config import settings
 
@@ -36,9 +34,7 @@ def create_app() -> FastAPI:
     """Crea y configura la aplicación FastAPI."""
     application = FastAPI(title=settings.app_name, version=settings.app_version)
     application.middleware("http")(request_id_middleware)
-    register_error_handlers(application)
     application.include_router(health_router)
-    application.include_router(extraction_router)
     return application
 
 
