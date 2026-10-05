@@ -7,10 +7,12 @@ un parser multipart de spool infinito: la vía declarativa volcaría a disco
 los archivos de más de 1 MB (SpooledTemporaryFile) y no permite acotar el
 cuerpo antes de leerlo.
 
-Contrato de esta fase (recepción):
+Contrato final (Issue #5, C1 + TP):
 
-    200 -> {"filename": <str>, "size": <int>}
+    200 -> {filename, extracted_text, checksum, content, page_count}
+           Regla estricta: extracted_text == content (mismo string).
     400 -> {"code": "INVALID_REQUEST", "message": "<detalle>"}
+    422/500: traducidos desde el dominio por los handlers de main.py.
 """
 
 import math
@@ -23,8 +25,11 @@ from python_multipart.multipart import parse_options_header
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 
+from pdf_extractext_extractor.checksum import compute_sha256
 from pdf_extractext_extractor.config import settings
 from pdf_extractext_extractor.errors import InvalidRequest
+
+from app.domain.extractor import extract_pdf_data
 
 MULTIPART_CONTENT_TYPE = b"multipart/form-data"
 
@@ -86,11 +91,11 @@ async def _parse_multipart_form(request: Request) -> FormData:
 
 @router.post("/extract")
 async def extract(request: Request) -> dict[str, Any]:
-    """Recibe el PDF del campo `file` y acusa la recepción en memoria.
+    """Orquesta recepción -> extracción de texto -> checksum (C1 + TP).
 
-    Devuelve el filename íntegro de la cabecera multipart y el tamaño de los
-    bytes recibidos; la extracción de texto y el checksum se agregan en issues
-    posteriores sobre esta misma ruta.
+    Devuelve el contrato combinado con exactamente cinco campos; los errores
+    del dominio (InvalidPDFContentError / InternalProcessingError) se traducen
+    en los exception handlers registrados en main.py.
     """
     _reject_oversized_declared_body(request)
     form = await _parse_multipart_form(request)
@@ -100,8 +105,15 @@ async def extract(request: Request) -> dict[str, Any]:
         raise InvalidRequest("El campo 'file' es obligatorio.")
     if not isinstance(upload, UploadFile):
         raise InvalidRequest("El campo 'file' debe contener un archivo.")
-    content = await upload.read()
-    if not content:
+    pdf_bytes = await upload.read()
+    if not pdf_bytes:
         raise InvalidRequest("El archivo está vacío.")
 
-    return {"filename": upload.filename, "size": len(content)}
+    extracted = extract_pdf_data(pdf_bytes)
+    return {
+        "filename": upload.filename,
+        "extracted_text": extracted.extracted_text,
+        "checksum": compute_sha256(pdf_bytes),
+        "content": extracted.extracted_text,
+        "page_count": extracted.page_count,
+    }

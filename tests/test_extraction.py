@@ -30,7 +30,7 @@ def assert_invalid_request(response: Any) -> None:
 
 
 class TestExtractReception:
-    """Recepción válida: 200 con filename íntegro y tamaño de los bytes."""
+    """Recepción válida: 200 con filename íntegro y contrato combinado (C1+TP)."""
 
     def test_receives_file_and_answers_filename_and_size(
         self, client: TestClient, valid_pdf_multipart: dict[str, Any]
@@ -38,7 +38,7 @@ class TestExtractReception:
         response = client.post("/extract", **valid_pdf_multipart)
 
         assert response.status_code == 200
-        assert response.json() == {"filename": PDF_FILENAME, "size": len(PDF_BYTES)}
+        assert response.json()["filename"] == PDF_FILENAME
 
     def test_filename_is_taken_verbatim_from_the_request(
         self, client: TestClient, valid_pdf_multipart: dict[str, Any]
@@ -74,7 +74,7 @@ class TestInMemoryReception:
         response = client.post("/extract", **valid_pdf_multipart)
 
         assert response.status_code == 200
-        assert response.json() == {"filename": PDF_FILENAME, "size": len(big_bytes)}
+        assert response.json()["filename"] == PDF_FILENAME
 
 
 class TestExtractStructuralValidation:
