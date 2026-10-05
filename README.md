@@ -70,27 +70,43 @@ uv run pytest
 
 ## Docker
 
+Imagen multi-stage: lockfile congelado (`uv sync --locked --no-dev
+--no-editable`), runtime sin dev-deps, usuario no-root y healthcheck de
+liveness. El `docker-compose.yml` de este repo es **solo para
+smoke/desarrollo local**: aplica límites explícitos (1 CPU / 1 GB) y no
+publica puertos (red interna). La integración del sistema completo vive
+en `pdf-extractext-infrastructure`.
+
 ```bash
-docker build -t pdf-extractext-extraction .
-docker run -p 8000:8000 pdf-extractext-extraction
+# Smoke contra el contenedor (build + up + liveness + stats + down)
+make smoke
+
+# Solo build/run manuales
+docker build -t pdf-extractext-extractor:local .
+docker compose up -d --wait
 ```
 
 ## Estructura
 
 ```
 ├── pyproject.toml                    # Dependencias y metadatos (uv)
-├── Dockerfile
+├── Dockerfile                        # Multi-stage, no-root, healthcheck
+├── docker-compose.yml                # Smoke local: límites 1 CPU / 1 GB, sin ports
+├── gunicorn.conf.py                  # Workers por env, backlog acotado
+├── Makefile                          # test / smoke
 ├── .dockerignore
 ├── .gitignore
 ├── src/
 │   └── pdf_extractext_extractor/
 │       ├── __init__.py
 │       ├── config.py                 # Settings por variables de entorno
+│       ├── admission.py              # Control de admisión 503 + Retry-After
 │       ├── errors.py                 # Contrato de error 400 INVALID_REQUEST
 │       ├── extraction.py             # POST /extract (recepción multipart)
 │       └── main.py                   # App FastAPI + GET /health
 └── tests/
     ├── conftest.py                   # Fixture multipart válida (compartible)
     ├── test_health.py                # /health + guardas de arquitectura
-    └── test_extraction.py            # POST /extract
+    ├── test_extraction.py            # POST /extract
+    └── test_container_config.py      # Límites y endurecimiento de contenedor (estático)
 ```

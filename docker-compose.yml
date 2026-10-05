@@ -1,0 +1,38 @@
+# Compose LOCAL de smoke/desarrollo (Issue #7).
+# La integración del sistema vive en pdf-extractext-infrastructure.
+
+services:
+  extraction:
+    build: .
+    image: pdf-extractext-extractor:local
+    # Sin `ports`: solo red interna.
+    expose:
+      - "8001"
+    environment:
+      WEB_CONCURRENCY: "4" # workers gunicorn
+      MAX_CONCURRENCY: "1" # extracciones por worker
+      RETRY_AFTER_SECONDS: "1"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - internal
+    restart: unless-stopped
+
+networks:
+  internal:
+    internal: true

@@ -10,4 +10,7 @@ __pycache__/
 .ruff_cache/
 tests/
 tasks/
-README.md
+*.md
+.env
+docker-compose.yml
+Makefile
