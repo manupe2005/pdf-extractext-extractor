@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
+from pdf_extractext_extractor.admission import AdmissionMiddleware
 from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
@@ -21,6 +22,11 @@ from pdf_extractext_extractor.extraction import router as extraction_router
 def create_app() -> FastAPI:
     """Crea y configura la aplicación FastAPI."""
     app = FastAPI(title=settings.app_name, version=settings.app_version)
+    app.add_middleware(
+        AdmissionMiddleware,
+        max_concurrency=settings.max_concurrency,
+        retry_after=settings.retry_after_seconds,
+    )
     app.add_exception_handler(InvalidRequest, invalid_request_handler)
     app.add_exception_handler(RequestValidationError, request_validation_handler)
     app.add_exception_handler(InvalidPDFContentError, invalid_pdf_content_handler)
