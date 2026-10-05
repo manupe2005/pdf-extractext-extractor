@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import pymupdf
 
-from app.domain.exceptions import (
+from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
 )

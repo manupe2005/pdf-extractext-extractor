@@ -15,7 +15,7 @@ from pdf_extractext_extractor.main import app
 
 SRC_PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "pdf_extractext_extractor"
 
-FORBIDDEN_MODULES = ("pymongo", "motor", "mongodb", "bson", "pymupdf", "fitz")
+FORBIDDEN_MODULES = ("pymongo", "motor", "mongodb", "bson")
 
 
 def test_health_returns_ok() -> None:

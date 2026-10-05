@@ -7,11 +7,11 @@ por lo que la colección fallará con ModuleNotFoundError.
 
 import pytest
 
-from app.domain.exceptions import (
+from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
 )
-from app.domain.extractor import extract_pdf_data
+from pdf_extractext_extractor.domain.extractor import extract_pdf_data
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ class TestUnexpectedLibraryFailure:
 
         # En Fase Verde el dominio abrirá el PDF vía pymupdf.open();
         # forzamos un crash no relacionado con el formato del documento.
-        monkeypatch.setattr("app.domain.extractor.pymupdf.open", _explode)
+        monkeypatch.setattr("pdf_extractext_extractor.domain.extractor.pymupdf.open", _explode)
 
         with pytest.raises(InternalProcessingError):
             extract_pdf_data(structurally_valid_pdf)
@@ -91,7 +91,7 @@ class TestUnexpectedLibraryFailure:
     ) -> None:
         original = RuntimeError("desbordamiento interno")
         monkeypatch.setattr(
-            "app.domain.extractor.pymupdf.open",
+            "pdf_extractext_extractor.domain.extractor.pymupdf.open",
             lambda *_a, **_k: (_ for _ in ()).throw(original),
         )
 

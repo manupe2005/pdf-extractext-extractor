@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
-from app.domain.exceptions import (
+from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
 )

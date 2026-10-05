@@ -13,7 +13,7 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.domain.exceptions import (
+from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
 )

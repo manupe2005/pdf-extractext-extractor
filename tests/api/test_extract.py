@@ -20,7 +20,7 @@ import hashlib
 import pytest
 from fastapi.testclient import TestClient
 
-from app.domain.exceptions import (
+from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
 )

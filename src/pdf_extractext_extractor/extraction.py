@@ -29,7 +29,7 @@ from pdf_extractext_extractor.checksum import compute_sha256
 from pdf_extractext_extractor.config import settings
 from pdf_extractext_extractor.errors import InvalidRequest
 
-from app.domain.extractor import extract_pdf_data
+from pdf_extractext_extractor.domain.extractor import extract_pdf_data
 
 MULTIPART_CONTENT_TYPE = b"multipart/form-data"
 
