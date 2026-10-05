@@ -1,13 +1,4 @@
-"""FASE ROJA -> VERDE (Issue #6): control de admisión con backpressure.
-
-Contrato:
-    503 -> {"code": "INTERNAL_ERROR", "message": "<detalle>"} + Retry-After
-           Solo cuando no hay capacidad de admisión; el rechazo es inmediato.
-    422 -> un PDF inválido que logra admisión SIGUE siendo 422 bajo carga.
-
-El semáforo es por proceso y la adquisición es no bloqueante: si no hay
-slot libre no se espera, se rechaza de inmediato (cero acumulación).
-"""
+"""Issue #6: 503 inmediato + Retry-After sin capacidad; un 422 admitido sigue siendo 422."""
 
 import asyncio
 import json
@@ -74,7 +65,7 @@ class TestAdmissionRejection:
         asyncio.run(scenario())
 
     def test_rejection_is_immediate_without_waiting(self) -> None:
-        """Si no hay slot, no se espera al semáforo: la respuesta sale ya."""
+        """Sin slot no hay espera sobre el semáforo."""
 
         async def scenario() -> None:
             middleware = AdmissionMiddleware(
@@ -93,7 +84,7 @@ class TestAdmissionRejection:
         asyncio.run(scenario())
 
     def test_health_bypasses_admission(self) -> None:
-        """Liveness nunca se ahoga: /health no consume slots del semáforo."""
+        """/health no consume slots: el liveness no se ahoga saturado."""
 
         async def downstream(request: Request):
             from starlette.responses import JSONResponse
@@ -116,7 +107,7 @@ class TestAdmissionPreservesDomainErrors:
     def test_corrupt_pdf_still_returns_422_when_admitted(
         self, client: TestClient
     ) -> None:
-        """La saturación nunca reclasifica errores de dominio a 5xx."""
+        """La admisión nunca reclasifica errores de dominio a 5xx."""
         response = client.post(
             "/extract",
             files={"file": ("corrupto.pdf", b"no-es-un-pdf", "application/pdf")},

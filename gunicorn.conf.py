@@ -1,9 +1,4 @@
-"""Configuración de Gunicorn (Issue #6): workers parametrizables y backlog acotado.
-
-Los workers Uvicorn dan aislamiento por procesos ante el GIL; el backlog
-acotado hace fail-fast la acumulación a nivel socket, coherente con el
-rechazo 503 del control de admisión.
-"""
+"""Gunicorn: workers por env para aislamiento por procesos y backlog acotado."""
 
 import os
 

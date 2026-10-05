@@ -1,12 +1,9 @@
 """Control de admisión con backpressure (Issue #6).
 
-Semáforo de admisión por proceso sobre la ruta protegida (`/extract`).
-La adquisición es no bloqueante: `locked()` + `acquire()` sin await
-intermedio es atómico en el event loop, por lo que sin slot libre se
-rechaza de inmediato con 503 + Retry-After en lugar de acumular espera.
-
-Las rutas no protegidas (`/health`) nunca consumen slots: el liveness
-no debe ahogarse bajo saturación.
+Semáforo por proceso sobre `/extract`: `locked()` + `acquire()` sin await
+intermedio es atómico en el event loop, así que sin slot libre se rechaza
+de inmediato con 503 + Retry-After, sin acumulación. `/health` nunca
+consume slots.
 """
 
 import asyncio
@@ -21,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class AdmissionMiddleware(BaseHTTPMiddleware):
-    """Rechaza con 503 inmediato cuando no hay capacidad de admisión."""
+    """Rechaza con 503 inmediato cuando no hay capacidad."""
 
     def __init__(
         self,
