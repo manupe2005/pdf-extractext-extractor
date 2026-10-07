@@ -26,3 +26,5 @@ build/
 
 # OS
 .DS_Store
+tests/load/vegeta_body.bin
+tests/load/vegeta_targets.txt
