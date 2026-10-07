@@ -42,6 +42,10 @@ def create_app() -> FastAPI:
             "version": settings.app_version,
         }
 
+    @app.get("/readyz", tags=["Health"])
+    def readyz() -> dict[str, str]:
+        return {"status": "ok"}
+
     app.include_router(extraction_router)
     return app
 

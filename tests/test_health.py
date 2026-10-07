@@ -30,6 +30,15 @@ def test_health_returns_ok() -> None:
     }
 
 
+def test_readyz_returns_ok() -> None:
+    """Readiness para healthchecks de Docker/Traefik (Issue #12)."""
+    client = TestClient(app)
+    response = client.get("/readyz")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_package_contains_no_forbidden_imports() -> None:
     files = sorted(SRC_PACKAGE_DIR.rglob("*.py"))
     assert files, f"Se esperaban módulos en {SRC_PACKAGE_DIR}"
