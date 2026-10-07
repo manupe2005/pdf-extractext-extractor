@@ -18,6 +18,26 @@ try {
   PDF_BINARY_DATA = new ArrayBuffer(1);
 }
 
+// Cuerpo multipart construido UNA sola vez en el init context.
+// Con 100 VUs y un PDF de 8.5 MB, http.file() armaba una copia del body por
+// iteración ~ OOM del proceso k6 (3.3 GB) en hosts con poca RAM. Un único
+// ArrayBuffer compartido entre iteraciones elimina esa duplicación.
+const MULTIPART_BOUNDARY = '----k6boundary9f4e2c1';
+const MULTIPART_BODY = (function buildBody() {
+  const head = new TextEncoder().encode(
+    `--${MULTIPART_BOUNDARY}\r\n` +
+    `Content-Disposition: form-data; name="file"; filename="${PDF_FILENAME}"\r\n` +
+    `Content-Type: ${PDF_CONTENT_TYPE}\r\n\r\n`
+  );
+  const tail = new TextEncoder().encode(`\r\n--${MULTIPART_BOUNDARY}--\r\n`);
+  const pdf = new Uint8Array(PDF_BINARY_DATA);
+  const body = new Uint8Array(head.length + pdf.length + tail.length);
+  body.set(head, 0);
+  body.set(pdf, head.length);
+  body.set(tail, head.length + pdf.length);
+  return body.buffer;
+})();
+
 // Métrica para contar errores que NO sean 503
 const customErrorRate = new Rate('custom_error_rate_excluding_503');
 
@@ -67,21 +87,16 @@ export default function () {
   // localhost:8090 es el puerto publicado por Traefik en WSL.
   const url = 'http://localhost:8090/extract';
 
-  const payload = {
-    file: http.file(
-      PDF_BINARY_DATA,
-      PDF_FILENAME,
-      PDF_CONTENT_TYPE
-    ),
-  };
-
   const params = {
     headers: {
       Host: 'extraction.pdf-extractext.localhost',
+      'Content-Type': `multipart/form-data; boundary=${MULTIPART_BOUNDARY}`,
     },
+    // Los bodies de respuesta son JSON pequeños; descartarlos evita retainers.
+    responseType: 'text',
   };
 
-  const res = http.post(url, payload, params);
+  const res = http.post(url, MULTIPART_BODY, params);
 
   const isSuccess = check(res, {
     'status is 200': (r) => r.status === 200,
