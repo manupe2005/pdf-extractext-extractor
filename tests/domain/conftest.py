@@ -46,6 +46,42 @@ def image_only_pdf() -> bytes:
 
 
 @pytest.fixture()
+def heading_pdf() -> bytes:
+    """PDF de 1 página con un título grande (24pt) y un cuerpo (11pt)."""
+    document = pymupdf.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Cuerpo normal del documento", fontsize=11)
+    page.insert_text((72, 160), "Titulo Principal", fontsize=24)
+    data = document.tobytes()
+    document.close()
+    return data
+
+
+@pytest.fixture()
+def bullet_list_pdf() -> bytes:
+    """PDF de 1 página con dos ítems de lista con prefijo de viñeta."""
+    document = pymupdf.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "- Primero", fontsize=11)
+    page.insert_text((72, 100), "- Segundo", fontsize=11)
+    data = document.tobytes()
+    document.close()
+    return data
+
+
+@pytest.fixture()
+def two_paragraphs_pdf() -> bytes:
+    """PDF de 1 página con dos párrafos separados verticalmente."""
+    document = pymupdf.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Primer parrafo independiente", fontsize=11)
+    page.insert_text((72, 400), "Segundo parrafo independiente", fontsize=11)
+    data = document.tobytes()
+    document.close()
+    return data
+
+
+@pytest.fixture()
 def corrupted_pdf() -> bytes:
     """Cabecera PDF + cuerpo binario truncado (no procesable)."""
     return b"%PDF-1.4\n" + b"\x00\xff\xde\xad\x03\x04obj roto" * 16

@@ -118,3 +118,57 @@ class TestImageOnlyPdf:
         result = extract_pdf_data(image_only_pdf)
 
         assert result.page_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Escenario 5: conversión a Markdown estructurado
+# ---------------------------------------------------------------------------
+
+
+class TestMarkdownConversion:
+    def test_large_font_becomes_heading(self, heading_pdf: bytes) -> None:
+        result = extract_pdf_data(heading_pdf)
+
+        assert "# Titulo Principal" in result.extracted_text
+        assert "Cuerpo normal del documento" in result.extracted_text
+
+    def test_body_text_is_not_promoted_to_heading(self, heading_pdf: bytes) -> None:
+        result = extract_pdf_data(heading_pdf)
+
+        assert "# Cuerpo normal del documento" not in result.extracted_text
+
+    def test_bullet_lines_become_list_items(self, bullet_list_pdf: bytes) -> None:
+        result = extract_pdf_data(bullet_list_pdf)
+
+        assert "- Primero" in result.extracted_text
+        assert "- Segundo" in result.extracted_text
+
+    def test_list_items_have_no_leading_whitespace(
+        self, bullet_list_pdf: bytes
+    ) -> None:
+        result = extract_pdf_data(bullet_list_pdf)
+
+        for line in result.extracted_text.splitlines():
+            assert line == line.lstrip()
+
+    def test_paragraphs_are_separated_by_blank_line(
+        self, two_paragraphs_pdf: bytes
+    ) -> None:
+        result = extract_pdf_data(two_paragraphs_pdf)
+
+        assert (
+            "Primer parrafo independiente\n\nSegundo parrafo independiente"
+            in result.extracted_text
+        )
+
+    def test_pages_are_separated_by_horizontal_rule(
+        self, multi_page_text_pdf: bytes
+    ) -> None:
+        result = extract_pdf_data(multi_page_text_pdf)
+
+        assert "\n\n---\n\n" in result.extracted_text
+
+    def test_empty_pdf_has_no_separator(self, image_only_pdf: bytes) -> None:
+        result = extract_pdf_data(image_only_pdf)
+
+        assert result.extracted_text == ""
