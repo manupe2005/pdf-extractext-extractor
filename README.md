@@ -1,6 +1,12 @@
 # pdf-extractext-extraction
 
-Microservicio de extracción de texto de PDFs. **Estado actual:** bootstrap inicial — solo incluye la base del servicio y un endpoint de health check.
+Microservicio de extracción de texto de PDFs. Recibe un PDF por HTTP, extrae su
+texto con PyMuPDF y lo devuelve convertido a **Markdown estructurado**, todo
+100% en memoria (cero escrituras a disco en el hot path).
+
+**Estado actual:** funcional — extracción + checksum SHA-256, control de
+admisión con backpressure y probes de liveness/readiness. Los documentos de
+`tasks/` corresponden al plan de bootstrap original (histórico).
 
 ## Requisitos
 
@@ -28,16 +34,41 @@ dimensionado para 1 CPU / 1 GB; ajustable tras mediciones).
 
 ## API
 
+### Endpoints
+
+- `GET /health` -> liveness: `{"status": "ok", "service": "<app_name>", "version": "<app_version>"}`.
+- `GET /readyz` -> readiness: `{"status": "ok"}`.
+- `POST /extract` -> extracción (ver abajo).
+
 ### `POST /extract`
 
 Recibe un PDF por `multipart/form-data` (campo `file`) y lo procesa 100% en
-memoria, sin tocar el disco. Fase actual: recepción.
+memoria, sin tocar el disco. Extrae el texto con PyMuPDF y lo devuelve
+convertido a **Markdown estructurado** (encabezados `#`–`###`, listas y
+separadores de página `---`).
 
-- `200` -> `{"filename": "<original>", "size": <bytes>}` (la extracción de
-  texto y el checksum se agregan en issues posteriores sobre esta misma ruta).
+- `200` -> contrato C1 + TP (5 campos):
+
+```json
+{
+  "filename": "<original>",
+  "extracted_text": "<Markdown>",
+  "checksum": "<SHA-256 hex>",
+  "content": "<Markdown>",
+  "page_count": 42
+}
+```
+
+  Regla estricta: `extracted_text == content` (mismo string). Un PDF sin texto
+  devuelve `""`.
 - `400` -> `{"code": "INVALID_REQUEST", "message": "<detalle>"}` cuando falla
   la validación estructural: falta el campo `file`, el archivo está vacío, el
-  multipart está corrupto o el cuerpo supera el límite defensivo.
+  multipart está corrupto o el cuerpo supera el límite defensivo
+  (`MAX_UPLOAD_BYTES`).
+- `422` -> `{"code": "INVALID_PDF_CONTENT", "message": "<detalle>"}` cuando el
+  contenido no es un PDF válido/procesable.
+- `500` -> `{"code": "INTERNAL_ERROR", "message": "<detalle>"}` ante un fallo
+  interno de procesamiento.
 - `503` -> `{"code": "INTERNAL_ERROR", "message": "<detalle>"}` con header
   `Retry-After` cuando el control de admisión está saturado (backpressure,
   rechazo inmediato sin acumulación).
@@ -93,20 +124,20 @@ docker compose up -d --wait
 ├── Dockerfile                        # Multi-stage, no-root, healthcheck
 ├── docker-compose.yml                # Smoke local: límites 1 CPU / 1 GB, sin ports
 ├── gunicorn.conf.py                  # Workers por env, backlog acotado
-├── Makefile                          # test / smoke
-├── .dockerignore
-├── .gitignore
+├── Makefile                          # test / smoke / load-test / stress-test / perf-sustained
 ├── src/
 │   └── pdf_extractext_extractor/
-│       ├── __init__.py
 │       ├── config.py                 # Settings por variables de entorno
 │       ├── admission.py              # Control de admisión 503 + Retry-After
-│       ├── errors.py                 # Contrato de error 400 INVALID_REQUEST
-│       ├── extraction.py             # POST /extract (recepción multipart)
-│       └── main.py                   # App FastAPI + GET /health
-└── tests/
-    ├── conftest.py                   # Fixture multipart válida (compartible)
-    ├── test_health.py                # /health + guardas de arquitectura
-    ├── test_extraction.py            # POST /extract
-    └── test_container_config.py      # Límites y endurecimiento de contenedor (estático)
+│       ├── checksum.py               # SHA-256 del PDF
+│       ├── errors.py                 # Envelope de error (400 / 422 / 500)
+│       ├── extraction.py             # POST /extract (multipart + dominio)
+│       ├── main.py                   # App FastAPI + GET /health + GET /readyz
+│       └── domain/
+│           ├── extractor.py          # PDF -> Markdown con PyMuPDF
+│           └── exceptions.py         # Errores de dominio (422 / 500)
+├── docs/
+│   ├── adr/                          # Decisiones de arquitectura
+│   └── performance-issue-9.md        # Mediciones de CPU/RAM bajo carga
+└── tests/                            # unitarios (api/, domain/), integration/, load/
 ```
