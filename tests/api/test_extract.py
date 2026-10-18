@@ -4,7 +4,8 @@ Contrato combinado de respuesta 200:
     {filename, extracted_text, checksum, content, page_count}
     Regla estricta: extracted_text == content (mismo string exacto).
 
-Envelope de error estricto {code, message}:
+Errores en formato RFC 9457 (application/problem+json):
+    {type, title, status, detail, code}
     400 INVALID_REQUEST      -> multipart ausente / malformado / vacío
     422 INVALID_PDF_CONTENT  -> InvalidPDFContentError del dominio
     500 INTERNAL_ERROR       -> InternalProcessingError del dominio
@@ -97,7 +98,8 @@ class TestExtractInvalidRequest:
         assert response.status_code == 400
         payload = response.json()
         assert payload["code"] == "INVALID_REQUEST"
-        assert isinstance(payload["message"], str)
+        assert isinstance(payload["detail"], str)
+        assert response.headers["content-type"].startswith("application/problem+json")
 
     def test_request_without_multipart_content_type_returns_400(
         self, client: TestClient
@@ -116,13 +118,14 @@ class TestExtractInvalidRequest:
         assert response.status_code == 400
         assert response.json()["code"] == "INVALID_REQUEST"
 
-    def test_error_envelope_has_exactly_code_and_message_keys(
+    def test_error_body_is_exactly_rfc9457_problem_details(
         self, client: TestClient
     ) -> None:
         payload = client.post("/extract", content=b"sin multipart").json()
 
-        assert set(payload) == {"code", "message"}
-        assert all(isinstance(value, str) for value in payload.values())
+        assert set(payload) == {"type", "title", "status", "detail", "code"}
+        assert payload["type"] == "urn:pdf-extractext:invalid-request"
+        assert payload["status"] == 400
 
 
 # ---------------------------------------------------------------------------
@@ -146,8 +149,11 @@ class TestExtractInvalidPdfContent:
 
         assert response.status_code == 422
         assert response.json() == {
+            "type": "urn:pdf-extractext:invalid-pdf-content",
+            "title": "Contenido PDF inválido",
+            "status": 422,
+            "detail": "El contenido recibido no es un PDF válido",
             "code": "INVALID_PDF_CONTENT",
-            "message": "El contenido recibido no es un PDF válido",
         }
 
 
@@ -172,8 +178,11 @@ class TestExtractInternalError:
 
         assert response.status_code == 500
         assert response.json() == {
+            "type": "urn:pdf-extractext:internal-error",
+            "title": "Error interno del servidor",
+            "status": 500,
+            "detail": "Fallo inesperado procesando el PDF",
             "code": "INTERNAL_ERROR",
-            "message": "Fallo inesperado procesando el PDF",
         }
 
 

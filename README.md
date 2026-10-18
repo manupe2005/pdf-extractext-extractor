@@ -61,17 +61,17 @@ separadores de página `---`).
 
   Regla estricta: `extracted_text == content` (mismo string). Un PDF sin texto
   devuelve `""`.
-- `400` -> `{"code": "INVALID_REQUEST", "message": "<detalle>"}` cuando falla
-  la validación estructural: falta el campo `file`, el archivo está vacío, el
-  multipart está corrupto o el cuerpo supera el límite defensivo
-  (`MAX_UPLOAD_BYTES`).
-- `422` -> `{"code": "INVALID_PDF_CONTENT", "message": "<detalle>"}` cuando el
-  contenido no es un PDF válido/procesable.
-- `500` -> `{"code": "INTERNAL_ERROR", "message": "<detalle>"}` ante un fallo
-  interno de procesamiento.
-- `503` -> `{"code": "INTERNAL_ERROR", "message": "<detalle>"}` con header
-  `Retry-After` cuando el control de admisión está saturado (backpressure,
-  rechazo inmediato sin acumulación).
+
+Los errores responden `Content-Type: application/problem+json` (RFC 9457) con
+los campos `type` (URN), `title`, `status`, `detail` + el miembro de extensión
+`code`:
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| `400` | `INVALID_REQUEST` | Validación estructural: falta el campo `file`, archivo vacío, multipart corrupto o cuerpo que supera `MAX_UPLOAD_BYTES`. |
+| `422` | `INVALID_PDF_CONTENT` | El contenido no es un PDF válido/procesable. |
+| `500` | `INTERNAL_ERROR` | Fallo interno de procesamiento. |
+| `503` | `SERVICE_OVERLOADED` | Control de admisión saturado (backpressure, rechazo inmediato) — siempre con header `Retry-After`. |
 
 ```bash
 curl -F "file=@documento.pdf" http://localhost:8000/extract
@@ -130,7 +130,7 @@ docker compose up -d --wait
 │       ├── config.py                 # Settings por variables de entorno
 │       ├── admission.py              # Control de admisión 503 + Retry-After
 │       ├── checksum.py               # SHA-256 del PDF
-│       ├── errors.py                 # Envelope de error (400 / 422 / 500)
+│       ├── errors.py                 # Errores RFC 9457 (400 / 422 / 500 / 503)
 │       ├── extraction.py             # POST /extract (multipart + dominio)
 │       ├── main.py                   # App FastAPI + GET /health + GET /readyz
 │       └── domain/

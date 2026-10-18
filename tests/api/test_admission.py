@@ -28,7 +28,7 @@ async def _never_called(request: Request):  # pragma: no cover
 
 
 class TestAdmissionRejection:
-    def test_saturated_returns_503_with_contract_envelope(self) -> None:
+    def test_saturated_returns_503_with_problem_details(self) -> None:
         async def scenario() -> None:
             middleware = AdmissionMiddleware(
                 _never_called, max_concurrency=1, retry_after=3
@@ -41,11 +41,13 @@ class TestAdmissionRejection:
 
             assert response.status_code == 503
             assert json.loads(response.body) == {
-                "code": "INTERNAL_ERROR",
-                "message": response_body_message(json.loads(response.body)),
+                "type": "urn:pdf-extractext:service-overloaded",
+                "title": "Servicio saturado",
+                "status": 503,
+                "detail": "Servicio saturado. Reintente más tarde.",
+                "code": "SERVICE_OVERLOADED",
             }
-            assert set(json.loads(response.body)) == {"code", "message"}
-            assert json.loads(response.body)["code"] == "INTERNAL_ERROR"
+            assert response.media_type == "application/problem+json"
 
         asyncio.run(scenario())
 
@@ -116,7 +118,4 @@ class TestAdmissionPreservesDomainErrors:
         assert response.json()["code"] == "INVALID_PDF_CONTENT"
 
 
-def response_body_message(body: dict) -> str:
-    message = body.get("message")
-    assert isinstance(message, str) and message, "message debe ser string no vacío"
-    return message
+

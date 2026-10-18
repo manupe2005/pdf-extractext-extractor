@@ -1,8 +1,8 @@
 """Tests de POST /extract (Issue #2): recepción multipart 100% en memoria.
 
-Contrato de error estructural exacto:
+Contrato de error estructural exacto (RFC 9457):
 
-    400 -> {"code": "INVALID_REQUEST", "message": "<detalle>"}
+    400 -> problem+json {type, title, status, detail, code}
 """
 
 from typing import Any
@@ -21,12 +21,12 @@ def client() -> TestClient:
 
 
 def assert_invalid_request(response: Any) -> None:
-    """El cuerpo de error debe ser exactamente {"code", "message"} con 400."""
+    """El cuerpo de error debe ser exactamente un problem 400 INVALID_REQUEST."""
     assert response.status_code == 400
     payload = response.json()
-    assert set(payload) == {"code", "message"}
+    assert set(payload) == {"type", "title", "status", "detail", "code"}
     assert payload["code"] == "INVALID_REQUEST"
-    assert isinstance(payload["message"], str) and payload["message"]
+    assert isinstance(payload["detail"], str) and payload["detail"]
 
 
 class TestExtractReception:
@@ -86,7 +86,7 @@ class TestExtractStructuralValidation:
         response = client.post("/extract", json={"file": "no soy un archivo"})
 
         assert_invalid_request(response)
-        assert "multipart" in response.json()["message"]
+        assert "multipart" in response.json()["detail"]
 
     def test_rejects_missing_file_field(self, client: TestClient) -> None:
         response = client.post(
@@ -95,7 +95,7 @@ class TestExtractStructuralValidation:
         )
 
         assert_invalid_request(response)
-        assert "'file'" in response.json()["message"]
+        assert "'file'" in response.json()["detail"]
 
     def test_rejects_file_field_that_is_not_a_file(self, client: TestClient) -> None:
         response = client.post("/extract", data={"file": "texto plano"})
@@ -143,4 +143,4 @@ class TestExtractDefensiveSizeLimit:
         )
 
         assert_invalid_request(response)
-        assert "límite" in response.json()["message"]
+        assert "límite" in response.json()["detail"]

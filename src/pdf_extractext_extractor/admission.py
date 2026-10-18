@@ -11,8 +11,10 @@ import logging
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 from starlette.types import ASGIApp
+
+from pdf_extractext_extractor.errors import problem_response
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +44,10 @@ class AdmissionMiddleware(BaseHTTPMiddleware):
             logger.warning(
                 "rechazo 503 por saturación (rechazos acumulados=%d)", self.rejections
             )
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "code": "INTERNAL_ERROR",
-                    "message": "Servicio saturado. Reintente más tarde.",
-                },
+            return problem_response(
+                503,
+                "SERVICE_OVERLOADED",
+                "Servicio saturado. Reintente más tarde.",
                 headers={"Retry-After": str(self.retry_after)},
             )
 

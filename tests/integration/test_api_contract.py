@@ -5,10 +5,10 @@ Traefik interno: POST /extract con multipart/form-data, header X-Request-ID
 opcional, y assertions sobre el contrato extendido de respuesta:
 
     200 -> {filename, extracted_text, checksum, content, page_count}
-    400 -> {code: "INVALID_REQUEST", message}
-    422 -> {code: "INVALID_PDF_CONTENT", message}
-    500 -> {code: "INTERNAL_ERROR", message}
-    503 -> {code: "INTERNAL_ERROR", message} + Retry-After (admisión satura)
+    400 -> problem+json RFC 9457, code INVALID_REQUEST
+    422 -> problem+json, code INVALID_PDF_CONTENT
+    500 -> problem+json, code INTERNAL_ERROR
+    503 -> problem+json, code SERVICE_OVERLOADED + Retry-After (admisión satura)
 
 Propagación de X-Request-ID: la app actualmente NO refleja el header; se
 asserts que lo tolera y se deja marcado xfail el reflejo futuro en
@@ -43,7 +43,7 @@ EXPECTED_SUCCESS_KEYS = {
     "content",
     "page_count",
 }
-ERROR_ENVELOPE_KEYS = {"code", "message"}
+PROBLEM_KEYS = {"type", "title", "status", "detail", "code"}
 
 
 @pytest.fixture()
@@ -99,7 +99,7 @@ class TestErrorMatrix:
 
         assert response.status_code == 400
         payload = response.json()
-        assert set(payload) == ERROR_ENVELOPE_KEYS
+        assert set(payload) == PROBLEM_KEYS
         assert payload["code"] == "INVALID_REQUEST"
 
     def test_multipart_without_file_field_returns_400(
@@ -123,7 +123,7 @@ class TestErrorMatrix:
 
         assert response.status_code == 422
         payload = response.json()
-        assert set(payload) == ERROR_ENVELOPE_KEYS
+        assert set(payload) == PROBLEM_KEYS
         assert payload["code"] == "INVALID_PDF_CONTENT"
 
     def test_domain_invalid_pdf_error_maps_to_422(
@@ -140,10 +140,8 @@ class TestErrorMatrix:
         response = client.post("/extract", **valid_pdf_multipart)
 
         assert response.status_code == 422
-        assert response.json() == {
-            "code": "INVALID_PDF_CONTENT",
-            "message": "El contenido recibido no es un PDF válido",
-        }
+        assert response.json()["detail"] == "El contenido recibido no es un PDF válido"
+        assert response.json()["code"] == "INVALID_PDF_CONTENT"
 
     def test_internal_processing_error_maps_to_500(
         self,
@@ -159,10 +157,8 @@ class TestErrorMatrix:
         response = client.post("/extract", **valid_pdf_multipart)
 
         assert response.status_code == 500
-        assert response.json() == {
-            "code": "INTERNAL_ERROR",
-            "message": "Fallo inesperado procesando el PDF",
-        }
+        assert response.json()["detail"] == "Fallo inesperado procesando el PDF"
+        assert response.json()["code"] == "INTERNAL_ERROR"
 
     def test_admission_saturation_returns_503_with_retry_after(self) -> None:
         async def scenario() -> None:
@@ -186,8 +182,11 @@ class TestErrorMatrix:
 
             assert response.status_code == 503
             assert json.loads(response.body) == {
-                "code": "INTERNAL_ERROR",
-                "message": "Servicio saturado. Reintente más tarde.",
+                "type": "urn:pdf-extractext:service-overloaded",
+                "title": "Servicio saturado",
+                "status": 503,
+                "detail": "Servicio saturado. Reintente más tarde.",
+                "code": "SERVICE_OVERLOADED",
             }
             assert response.headers["retry-after"] == "3"
 

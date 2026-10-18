@@ -12,8 +12,7 @@ Contrato final (Issue #5, C1 + TP):
     200 -> {filename, extracted_text, checksum, content, page_count}
            Regla estricta: extracted_text == content (mismo string), y ese
            string es el contenido del PDF convertido a Markdown estructurado.
-    400 -> {"code": "INVALID_REQUEST", "message": "<detalle>"}
-    422/500: traducidos desde el dominio por los handlers de main.py.
+    Errores (400/422/500): problem+json RFC 9457 traducidos en main.py.
 """
 
 import math
