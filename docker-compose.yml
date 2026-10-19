@@ -9,7 +9,7 @@ services:
     expose:
       - "8001"
     environment:
-      WEB_CONCURRENCY: "4" # workers gunicorn
+      WEB_CONCURRENCY: "1" # workers gunicorn
       MAX_CONCURRENCY: "1" # extracciones por worker
       RETRY_AFTER_SECONDS: "1"
     deploy:
