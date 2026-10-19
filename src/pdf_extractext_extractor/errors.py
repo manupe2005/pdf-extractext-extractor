@@ -1,14 +1,7 @@
-"""Catálogo de errores de la API (Issue #5) — RFC 9457 Problem Details.
+"""Errores de la API en RFC 9457 problem+json (catálogo cerrado de codes).
 
-Todas las fallas responden application/problem+json con los campos
-type (URN), title, status, detail + el miembro de extensión code:
-
-    400 INVALID_REQUEST      -> multipart ausente / malformado / vacío
-    422 INVALID_PDF_CONTENT  -> InvalidPDFContentError del dominio
-    500 INTERNAL_ERROR       -> InternalProcessingError del dominio
-    503 SERVICE_OVERLOADED   -> saturación del middleware de admisión
-
-Prohibido emitir 415, 404 o 409 desde estas rutas.
+400 INVALID_REQUEST / 422 INVALID_PDF_CONTENT / 500 INTERNAL_ERROR /
+503 SERVICE_OVERLOADED. Prohibido emitir 415, 404 o 409.
 """
 
 from fastapi import Request
@@ -64,12 +57,7 @@ async def invalid_request_handler(request: Request, exc: InvalidRequest) -> JSON
 async def request_validation_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
-    """Sobrescribe el 422 genérico de FastAPI/Pydantic: aquí es un 400.
-
-    El catálogo del servicio reserva 422 exclusivamente para
-    INVALID_PDF_CONTENT (fallo de parseo del PDF), por lo que un error de
-    validación del request se traduce a INVALID_REQUEST.
-    """
+    """Traduce la validación del request a 400: el 422 es solo del PDF."""
     return problem_response(400, "INVALID_REQUEST", "Petición inválida.")
 
 

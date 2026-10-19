@@ -1,18 +1,8 @@
-"""Recepción del PDF por multipart/form-data: POST /extract (Issue #2).
+"""Recepción del PDF por multipart/form-data en memoria y POST /extract.
 
-El archivo llega en el campo `file`, se valida estructuralmente y se retiene
-100% en memoria, sin tocar el disco. El equivalente óptimo al `UploadFile`
-declarativo es leer el stream acotado por el límite defensivo y parsear con
-un parser multipart de spool infinito: la vía declarativa volcaría a disco
-los archivos de más de 1 MB (SpooledTemporaryFile) y no permite acotar el
-cuerpo antes de leerlo.
-
-Contrato final (Issue #5, C1 + TP):
-
-    200 -> {filename, extracted_text, checksum, content, page_count}
-           Regla estricta: extracted_text == content (mismo string), y ese
-           string es el contenido del PDF convertido a Markdown estructurado.
-    Errores (400/422/500): problem+json RFC 9457 traducidos en main.py.
+El cuerpo se acota con `MAX_UPLOAD_BYTES` antes de parsear y nunca toca el
+disco. Contrato 200: {filename, extracted_text, checksum, content, page_count}
+con `extracted_text == content` (mismo string).
 """
 
 import math
@@ -22,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from python_multipart.exceptions import MultipartParseError
 from python_multipart.multipart import parse_options_header
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 
@@ -37,12 +28,7 @@ router = APIRouter()
 
 
 class _InMemoryMultiPartParser(MultiPartParser):
-    """Parser multipart con retención garantizada 100% en memoria.
-
-    Starlette vuelca los archivos a disco en cuanto superan 1 MB; aquí el
-    spool nunca rueda porque el cuerpo ya quedó acotado por el límite
-    defensivo antes de empezar a parsear.
-    """
+    """Parser con spool infinito: el cuerpo ya viene acotado, nada va a disco."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -83,20 +69,13 @@ async def _parse_multipart_form(request: Request) -> FormData:
     try:
         return await parser.parse()
     except (MultiPartException, MultipartParseError) as exc:
-        # MultiPartException: límites del parser (demasiados campos, partes
-        # gigantes, Content-Disposition sin name). MultipartParseError: cuerpo
-        # corrupto; Starlette no la traduce, sin esto sería un 500.
+        # Sin esto Starlette no traduce el multipart corrupto y sería un 500.
         raise InvalidRequest(f"Multipart malformado: {exc}") from exc
 
 
 @router.post("/extract")
 async def extract(request: Request) -> dict[str, Any]:
-    """Orquesta recepción -> extracción de texto -> checksum (C1 + TP).
-
-    Devuelve el contrato combinado con exactamente cinco campos; los errores
-    del dominio (InvalidPDFContentError / InternalProcessingError) se traducen
-    en los exception handlers registrados en main.py.
-    """
+    """Recibe el PDF, extrae el Markdown y devuelve el contrato de 5 campos."""
     _reject_oversized_declared_body(request)
     form = await _parse_multipart_form(request)
 
@@ -106,12 +85,15 @@ async def extract(request: Request) -> dict[str, Any]:
     if not isinstance(upload, UploadFile):
         raise InvalidRequest("El campo 'file' debe contener un archivo.")
     pdf_bytes = await upload.read()
+    filename = upload.filename
+    await upload.close()
     if not pdf_bytes:
         raise InvalidRequest("El archivo está vacío.")
 
-    extracted = extract_pdf_data(pdf_bytes)
+    # En threadpool: la extracción es CPU-bound y no debe bloquear el event loop.
+    extracted = await run_in_threadpool(extract_pdf_data, pdf_bytes)
     return {
-        "filename": upload.filename,
+        "filename": filename,
         "extracted_text": extracted.extracted_text,
         "checksum": compute_sha256(pdf_bytes),
         "content": extracted.extracted_text,

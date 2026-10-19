@@ -1,22 +1,10 @@
-"""Issue #10: Contrato E2E que la API Service consume de Extraction.
+"""Contrato E2E que la API Service consume de Extraction.
 
-Estos tests ejercitan la app exactamente como la API lo hará a través de
-Traefik interno: POST /extract con multipart/form-data, header X-Request-ID
-opcional, y assertions sobre el contrato extendido de respuesta:
-
-    200 -> {filename, extracted_text, checksum, content, page_count}
-    400 -> problem+json RFC 9457, code INVALID_REQUEST
-    422 -> problem+json, code INVALID_PDF_CONTENT
-    500 -> problem+json, code INTERNAL_ERROR
-    503 -> problem+json, code SERVICE_OVERLOADED + Retry-After (admisión satura)
-
-Propagación de X-Request-ID: la app actualmente NO refleja el header; se
-asserts que lo tolera y se deja marcado xfail el reflejo futuro en
-respuesta/logs.
-
-Uso de fixtures: `valid_pdf_multipart` (tests/conftest.py) arma un
-multipart válido con un PDF mínimo de 1 página cuyo texto incluye
-"Proyecto cabras".
+Ejercita POST /extract como lo hará la API vía Traefik interno:
+200 con {filename, extracted_text, checksum, content, page_count} y errores
+problem+json (400 INVALID_REQUEST / 422 INVALID_PDF_CONTENT /
+500 INTERNAL_ERROR / 503 SERVICE_OVERLOADED + Retry-After). El header
+X-Request-ID se tolera; su reflejo futuro queda como xfail.
 """
 
 import asyncio
@@ -48,7 +36,7 @@ PROBLEM_KEYS = {"type", "title", "status", "detail", "code"}
 
 @pytest.fixture()
 def client() -> TestClient:
-    """Cliente HTTP de la app completa, idéntico al que usaría tests/api/."""
+    """Cliente HTTP de la app completa, como el que usaría la API."""
     return TestClient(create_app())
 
 

@@ -1,19 +1,8 @@
-"""FASE ROJA -> VERDE (Issue #5): POST /extract, contrato combinado C1 + TP.
+"""POST /extract: contrato de 5 campos, Markdown y errores problem+json.
 
-Contrato combinado de respuesta 200:
-    {filename, extracted_text, checksum, content, page_count}
-    Regla estricta: extracted_text == content (mismo string exacto).
-
-Errores en formato RFC 9457 (application/problem+json):
-    {type, title, status, detail, code}
-    400 INVALID_REQUEST      -> multipart ausente / malformado / vacío
-    422 INVALID_PDF_CONTENT  -> InvalidPDFContentError del dominio
-    500 INTERNAL_ERROR       -> InternalProcessingError del dominio
-
-Nota de módulos: el paquete de producción es el plano
-`pdf_extractext_extractor`; el dominio de extracción vive en
-`app.domain`. Los monkeypatch apuntan al símbolo importado a nivel de
-módulo en `pdf_extractext_extractor.extraction`.
+400 INVALID_REQUEST / 422 INVALID_PDF_CONTENT / 500 INTERNAL_ERROR /
+503 SERVICE_OVERLOADED. Los monkeypatch apuntan al símbolo importado a nivel
+de módulo en `pdf_extractext_extractor.extraction`.
 """
 
 import hashlib
@@ -155,6 +144,17 @@ class TestExtractInvalidPdfContent:
             "detail": "El contenido recibido no es un PDF válido",
             "code": "INVALID_PDF_CONTENT",
         }
+
+    def test_encrypted_pdf_maps_to_422(
+        self, client: TestClient, encrypted_pdf: bytes
+    ) -> None:
+        response = client.post(
+            "/extract",
+            files={"file": ("protegido.pdf", encrypted_pdf, "application/pdf")},
+        )
+
+        assert response.status_code == 422
+        assert response.json()["code"] == "INVALID_PDF_CONTENT"
 
 
 # ---------------------------------------------------------------------------

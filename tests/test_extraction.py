@@ -1,9 +1,4 @@
-"""Tests de POST /extract (Issue #2): recepción multipart 100% en memoria.
-
-Contrato de error estructural exacto (RFC 9457):
-
-    400 -> problem+json {type, title, status, detail, code}
-"""
+"""POST /extract: recepción multipart 100% en memoria y 400 estructurales."""
 
 from typing import Any
 
@@ -30,7 +25,7 @@ def assert_invalid_request(response: Any) -> None:
 
 
 class TestExtractReception:
-    """Recepción válida: 200 con filename íntegro y contrato combinado (C1+TP)."""
+    """Recepción válida: 200 con filename íntegro y contrato de 5 campos."""
 
     def test_receives_file_and_answers_filename_and_size(
         self, client: TestClient, valid_pdf_multipart: dict[str, Any]
@@ -61,8 +56,7 @@ class TestInMemoryReception:
     def test_file_over_spool_threshold_never_touches_disk(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch, valid_pdf_multipart: dict[str, Any]
     ) -> None:
-        """Un archivo de 2 MB no debe disparar el volcado a disco de
-        SpooledTemporaryFile (umbral por defecto de Starlette: 1 MB)."""
+        """2 MB no deben disparar el volcado a disco de SpooledTemporaryFile."""
 
         def fail_if_rolled(self: Any) -> None:
             raise AssertionError("SpooledTemporaryFile rodó a disco")
