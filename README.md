@@ -21,16 +21,16 @@ La configuración se define mediante variables de entorno (ver `src/pdf_extracte
 | ------------- | --------------------------- | -------------------- |
 | `APP_NAME`    | `pdf-extractext-extractor`  | Nombre del servicio  |
 | `APP_VERSION` | `0.1.0`                     | Versión              |
-| `PORT`        | `8000`                      | Puerto de escucha    |
+| `PORT`        | `8001`                      | Puerto de escucha (bind de Gunicorn) |
 | `MAX_UPLOAD_BYTES` | `67108864`              | Límite defensivo del cuerpo de la petición (bytes) |
 | `MAX_CONCURRENCY` | `1`                      | Extracciones simultáneas admitidas **por proceso/worker**; el exceso recibe 503 inmediato |
 | `RETRY_AFTER_SECONDS` | `1`                 | Valor del header `Retry-After` en los rechazos 503 |
 
-Gunicorn (servidor): `WEB_CONCURRENCY` (workers, default `4`) y
+Gunicorn (servidor): `WEB_CONCURRENCY` (workers, default `1`) y
 `GUNICORN_BACKLOG` (backlog de socket acotado, default `64`) en
 `gunicorn.conf.py`. La admisión total por contenedor es
-`WEB_CONCURRENCY × MAX_CONCURRENCY` (4 × 1 = 4 con los defaults,
-dimensionado para 1 CPU / 1 GB; ajustable tras mediciones).
+`WEB_CONCURRENCY × MAX_CONCURRENCY` (1 × 1 = 1 con los defaults, dimensionado
+para 1 CPU / 1 GB porque la extracción es CPU-bound).
 
 ## API
 
@@ -69,12 +69,12 @@ los campos `type` (URN), `title`, `status`, `detail` + el miembro de extensión
 | Status | `code` | Cuándo |
 |---|---|---|
 | `400` | `INVALID_REQUEST` | Validación estructural: falta el campo `file`, archivo vacío, multipart corrupto o cuerpo que supera `MAX_UPLOAD_BYTES`. |
-| `422` | `INVALID_PDF_CONTENT` | El contenido no es un PDF válido/procesable. |
+| `422` | `INVALID_PDF_CONTENT` | El contenido no es un PDF válido/procesable (incluye PDF protegido con contraseña). |
 | `500` | `INTERNAL_ERROR` | Fallo interno de procesamiento. |
 | `503` | `SERVICE_OVERLOADED` | Control de admisión saturado (backpressure, rechazo inmediato) — siempre con header `Retry-After`. |
 
 ```bash
-curl -F "file=@documento.pdf" http://localhost:8000/extract
+curl -F "file=@documento.pdf" http://localhost:8001/extract
 ```
 
 ## Desarrollo
@@ -84,13 +84,13 @@ curl -F "file=@documento.pdf" http://localhost:8000/extract
 uv sync
 
 # Ejecutar la aplicación (desarrollo)
-uv run uvicorn pdf_extractext_extractor.main:app --app-dir src --reload
+uv run uvicorn pdf_extractext_extractor.main:app --app-dir src --port 8001 --reload
 
 # Ejecutar como en producción (Gunicorn + workers Uvicorn)
 uv run gunicorn pdf_extractext_extractor.main:app -c gunicorn.conf.py
 
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 ```
 
 ## Tests
