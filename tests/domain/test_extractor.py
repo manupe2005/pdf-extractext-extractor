@@ -1,10 +1,6 @@
-"""FASE ROJA (Issue #4): extracción de texto PDF con PyMuPDF.
+"""Extracción de texto PDF con PyMuPDF y conversión a Markdown."""
 
-Estos tests están diseñados para fallar catastróficamente:
-los módulos `app.domain.extractor` y `app.domain.exceptions` aún no existen,
-por lo que la colección fallará con ModuleNotFoundError.
-"""
-
+import pymupdf
 import pytest
 
 from pdf_extractext_extractor.domain.exceptions import (
@@ -56,9 +52,26 @@ class TestCorruptedPdf:
     def test_error_is_not_internal_processing(
         self, corrupted_pdf: bytes
     ) -> None:
-        # Contrato: el mismo input corrupto jamás debe propagarse como 500
+        # El mismo input corrupto jamás debe propagarse como 500.
         with pytest.raises(InvalidPDFContentError) as exc_info:
             extract_pdf_data(corrupted_pdf)
+
+        assert not isinstance(exc_info.value, InternalProcessingError)
+
+
+# ---------------------------------------------------------------------------
+# Escenario 2b: PDF protegido con contraseña -> InvalidPDFContentError (422)
+# ---------------------------------------------------------------------------
+
+
+class TestEncryptedPdf:
+    def test_raises_invalid_pdf_content_error(self, encrypted_pdf: bytes) -> None:
+        with pytest.raises(InvalidPDFContentError):
+            extract_pdf_data(encrypted_pdf)
+
+    def test_error_is_not_internal_processing(self, encrypted_pdf: bytes) -> None:
+        with pytest.raises(InvalidPDFContentError) as exc_info:
+            extract_pdf_data(encrypted_pdf)
 
         assert not isinstance(exc_info.value, InternalProcessingError)
 
@@ -77,8 +90,7 @@ class TestUnexpectedLibraryFailure:
         def _explode(*_args: object, **_kwargs: object) -> None:
             raise RuntimeError("fallo desconocido en el motor de render")
 
-        # En Fase Verde el dominio abrirá el PDF vía pymupdf.open();
-        # forzamos un crash no relacionado con el formato del documento.
+        # Crash no relacionado con el formato del documento.
         monkeypatch.setattr("pdf_extractext_extractor.domain.extractor.pymupdf.open", _explode)
 
         with pytest.raises(InternalProcessingError):
@@ -118,6 +130,27 @@ class TestImageOnlyPdf:
         result = extract_pdf_data(image_only_pdf)
 
         assert result.page_count == 2
+
+
+class TestImageBlocksAreSkipped:
+    def test_get_text_disables_image_decoding(
+        self,
+        multi_page_text_pdf: bytes,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Fija la bandera: decodificar imágenes cuesta CPU y no cambia la salida.
+        seen: dict = {}
+        original = pymupdf.Page.get_text
+
+        def spy(page: "pymupdf.Page", *args, **kwargs):
+            seen.update(kwargs)
+            return original(page, *args, **kwargs)
+
+        monkeypatch.setattr(pymupdf.Page, "get_text", spy)
+
+        extract_pdf_data(multi_page_text_pdf)
+
+        assert seen["flags"] & pymupdf.TEXT_PRESERVE_IMAGES == 0
 
 
 # ---------------------------------------------------------------------------

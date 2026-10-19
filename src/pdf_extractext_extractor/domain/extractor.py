@@ -1,16 +1,7 @@
-"""Extracción de texto de PDFs con PyMuPDF y conversión a Markdown.
+"""Extracción de PDF a Markdown con PyMuPDF, solo con layout (sin OCR).
 
-Contrato del dominio:
-- PDF válido: retorna ExtractedPDFData con el Markdown estructurado y page_count.
-- PDF corrupto / no procesable: InvalidPDFContentError (-> 422).
-- Fallo inesperado de la librería: InternalProcessingError (-> 500).
-- PDF válido sin texto extraíble: ExtractedPDFData con extracted_text == "".
-
-La conversión usa exclusivamente la información de layout de PyMuPDF
-(`page.get_text("dict")`): tamaños y negritas de los spans para encabezados,
-prefijos de viñeta para listas y separación de párrafos/páginas. No se
-incorporan librerías externas de ML/OCR ni se renderiza a imagen, por lo que
-el costo es lineal en la cantidad de spans del documento.
+Errores: PDF no procesable -> InvalidPDFContentError (422);
+fallo de la librería -> InternalProcessingError (500).
 """
 
 import logging
@@ -39,13 +30,11 @@ class ExtractedPDFData:
 
 
 def extract_pdf_data(pdf_bytes: bytes) -> ExtractedPDFData:
-    """Extrae el texto completo de todas las páginas y lo convierte a Markdown.
-
-    El documento se abre y cierra dentro de un context manager para liberar
-    los recursos nativos de PyMuPDF sin fugas, incluso ante excepciones.
-    """
+    """Extrae todas las páginas a Markdown y devuelve su page_count."""
     try:
         with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+            if document.needs_pass:
+                raise InvalidPDFContentError("El PDF está protegido con contraseña")
             pages = (_page_to_markdown(page) for page in document)
             markdown = _PAGE_SEPARATOR.join(page for page in pages if page)
             return ExtractedPDFData(
@@ -67,7 +56,9 @@ def extract_pdf_data(pdf_bytes: bytes) -> ExtractedPDFData:
 
 def _page_to_markdown(page: "pymupdf.Page") -> str:
     """Convierte el contenido textual de una página en un bloque Markdown."""
-    blocks = page.get_text("dict")["blocks"]
+    # Sin TEXT_PRESERVE_IMAGES: los bloques de imagen se descartan igual.
+    flags = pymupdf.TEXTFLAGS_DICT & ~pymupdf.TEXT_PRESERVE_IMAGES
+    blocks = page.get_text("dict", flags=flags)["blocks"]
     base_size = _base_font_size(blocks)
     paragraph_gap = base_size if base_size > 0 else 12.0
     elements: list[str] = []

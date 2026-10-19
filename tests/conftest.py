@@ -7,6 +7,7 @@ API: `client.post("/extract", **valid_pdf_multipart)`.
 
 from typing import Any
 
+import pymupdf
 import pytest
 
 PDF_FILENAME = "informe cabras final.pdf"
@@ -51,3 +52,18 @@ def valid_pdf_multipart() -> dict[str, Any]:
     Uso: `client.post("/extract", **valid_pdf_multipart)`
     """
     return {"files": {"file": (PDF_FILENAME, PDF_BYTES, "application/pdf")}}
+
+
+@pytest.fixture()
+def encrypted_pdf() -> bytes:
+    """PDF AES-256 que exige contraseña de usuario."""
+    document = pymupdf.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "contenido protegido")
+    data = document.tobytes(
+        encryption=pymupdf.PDF_ENCRYPT_AES_256,
+        user_pw="hunter2",
+        owner_pw="hunter2-owner",
+    )
+    document.close()
+    return data

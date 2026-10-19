@@ -1,9 +1,4 @@
-"""Fixtures binarias PDF para las pruebas del dominio de extracción.
-
-Los PDFs se generan programáticamente con PyMuPDF (la misma librería bajo
-test), garantizando archivos estructuralmente válidos sin depender de
-binarios externos versionados.
-"""
+"""Fixtures binarias PDF generadas con PyMuPDF (sin binarios externos)."""
 
 import pymupdf
 import pytest
