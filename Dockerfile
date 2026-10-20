@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Multi-stage: lockfile congelado, runtime no-root sin dev-deps (Issue #7).
+# Multi-stage: lockfile congelado, runtime no-root sin dev-deps.
 
 # ---- Stage 1: build ----
 FROM python:3.12-slim AS build

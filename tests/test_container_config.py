@@ -1,4 +1,4 @@
-"""Issue #7: verifica sin Docker el endurecimiento del Dockerfile y del compose local."""
+"""Verifica sin Docker el endurecimiento del Dockerfile y del compose local."""
 
 import re
 from pathlib import Path

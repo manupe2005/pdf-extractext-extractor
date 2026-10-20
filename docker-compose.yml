@@ -1,4 +1,4 @@
-# Compose LOCAL de smoke/desarrollo (Issue #7).
+# Compose LOCAL de smoke/desarrollo.
 # La integración del sistema vive en pdf-extractext-infrastructure.
 
 services:

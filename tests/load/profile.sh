@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/load/profile.sh — Muestreo de CPU/RSS/restarts del contenedor de extracción (Issue #9).
+# tests/load/profile.sh — Muestreo de CPU/RSS/restarts del contenedor de extracción.
 #
 # Uso:
 #   tests/load/profile.sh start <run_id>   # inicia muestreo en segundo plano
