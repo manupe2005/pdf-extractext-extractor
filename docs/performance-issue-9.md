@@ -2,11 +2,15 @@
 
 Fecha: 2026-10-07 · Entorno: host local WSL (5.7 GB RAM totales, 8 vCPU lógicas),
 Docker Compose del repo `pdf-extractext-infrastructure`, límites del servicio
-**1 CPU / 1 GiB** (sin modificar). Corpus: `tests/data/heavy.292.pdf` (8.5 MB, ~292 páginas).
+**1 CPU / 1 GiB** (sin modificar). Corpus: PDF de 8,5 MB / 90 páginas (hoy en
+`pdf-extractext-infrastructure/tests/load/pdfs/`).
+
+> Nota (2026-10-21): la suite de carga de este repo fue eliminada; las corridas
+> oficiales son las de `pdf-extractext-infrastructure`.
 
 ## 1. Qué se midió
 
-Por cada corrida (`tests/load/profile.sh` + k6/Vegeta), volcados en `tests/load/results/`:
+Por cada corrida de k6/Vegeta:
 
 - CPU% y RSS del/los contenedor(es) de extracción (muestreo 1 s).
 - Restarts y OOMKilled (`docker inspect` antes/después).
@@ -78,7 +82,7 @@ Todo ello ya parametrizable por env: compose expone `EXTRACTION_WORKERS`,
 
 ## 5. Resultados finales (config definitiva, 1 réplica)
 
-### k6 (`make load-test`) — EXIT 0, todos los thresholds en verde ✓
+### k6 — EXIT 0, todos los thresholds en verde ✓
 
 ```
 spike 100 VUs completado sin crash ✓
@@ -90,7 +94,7 @@ RSS: 149.6 → max 162 → 149.0 MiB (plano, sin fuga) ✓
 Restarts: 0, OOMKilled: no ✓
 ```
 
-### Vegeta (`make stress-test`) ✓
+### Vegeta ✓
 
 ```
 50 rps × 30 s: 1500 requests, 0 errores de conexión/servidor
@@ -119,13 +123,6 @@ a reevaluar con Gonzalo en infraestructura con más CPU de host.
 ## 7. Archivos modificados / creados
 
 Repo extractor:
-- `tests/load/profile.sh` (nuevo): muestreo CPU/RSS/restarts + resúmenes.
-- `tests/load/results/` (nuevo): evidencia cruda (CSV, metas, logs).
-- `tests/load/k6_suite.js`: fix de cliente — body multipart construido una única
-  vez (init context) en vez de `http.file()` por iteración (OOM del proceso k6,
-  3.2 GB RSS en host de 5.7 GB). Escenarios y thresholds **sin cambios**.
-- `Makefile`: restaurados/mejorados `load-test`, `stress-test` + `perf-sustained`
-  (incluyen profiling automático y `GOGC/GOMEMLIMIT` para k6).
 - `docs/performance-issue-9.md` (este reporte), `docs/adr/0002-*.md`.
 
 Repo infraestructura (coordinado, cambios declarativos mínimos):
@@ -137,27 +134,12 @@ Sin cambios en `src/` (la lógica del endpoint no se tocó).
 ## 8. Reproducibilidad
 
 ```bash
-# Stack (desde ../pdf-extractext-infrastructure)
-docker compose up -d
-
-# Baseline / tuning
-tests/load/profile.sh start <run_id>     # abrir otra terminal para correr k6/vegeta
-tests/load/profile.sh stop && tests/load/profile.sh finish <run_id>
-tests/load/profile.sh summary <run_id>
-
-# Suites de la Issue #8
-make load-test        # k6 (spike 100 VUs + arrival 25 rps)
-make stress-test      # vegeta 50 rps x 30 s
-make perf-sustained   # 10 rps x 120 s para estabilidad de memoria
+# Stack y corridas de carga: ver ../pdf-extractext-infrastructure
 
 # Comparación de réplicas
 docker compose -f ../pdf-extractext-infrastructure/docker-compose.yml \
   up -d --scale extraction=5
 ```
-
-Nota de entorno: k6 cliente requiere `GOGC=25 GOMEMLIMIT=2500MiB` (ya en el
-Makefile) en hosts con ~5 GB RAM; el cuerpo multipart de 8.5 MB multiplica
-buffers por VU. Esto es una limitación del host de pruebas, no del servicio.
 
 ## 9. Pendientes explícitos
 

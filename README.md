@@ -124,7 +124,7 @@ docker compose up -d --wait
 ├── Dockerfile                        # Multi-stage, no-root, healthcheck
 ├── docker-compose.yml                # Smoke local: límites 1 CPU / 1 GB, sin ports
 ├── gunicorn.conf.py                  # Workers por env, backlog acotado
-├── Makefile                          # test / smoke / load-test / stress-test / perf-sustained
+├── Makefile                          # test / smoke
 ├── src/
 │   └── pdf_extractext_extractor/
 │       ├── config.py                 # Settings por variables de entorno
@@ -139,5 +139,5 @@ docker compose up -d --wait
 ├── docs/
 │   ├── adr/                          # Decisiones de arquitectura
 │   └── performance-issue-9.md        # Mediciones de CPU/RAM bajo carga
-└── tests/                            # unitarios (api/, domain/), integration/, load/
+└── tests/                            # unitarios (api/, domain/) e integration/
 ```
