@@ -16,6 +16,7 @@ from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 
 from pdf_extractext_extractor.config import settings
+from pdf_extractext_extractor.constants import MULTIPART_FORM_DATA_BYTES
 from pdf_extractext_extractor.errors import InvalidRequest
 from pdf_extractext_extractor.ports.interfaces import ChecksumCalculator, PDFExtractor
 
@@ -23,7 +24,7 @@ from pdf_extractext_extractor.ports.interfaces import ChecksumCalculator, PDFExt
 from pdf_extractext_extractor.checksum import compute_sha256  # noqa: F401
 from pdf_extractext_extractor.domain.extractor import extract_pdf_data  # noqa: F401
 
-MULTIPART_CONTENT_TYPE = b"multipart/form-data"
+MULTIPART_CONTENT_TYPE = MULTIPART_FORM_DATA_BYTES
 
 router = APIRouter()
 

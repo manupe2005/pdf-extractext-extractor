@@ -1,12 +1,7 @@
-"""Control de admisión con backpressure (Issue #6).
-
-Semáforo por proceso sobre `/extract`: `locked()` + `acquire()` sin await
-intermedio es atómico en el event loop, así que sin slot libre se rechaza
-de inmediato con 503 + Retry-After, sin acumulación. `/health` nunca
-consume slots.
-"""
+"""Control de admisión con backpressure."""
 
 import asyncio
+import json
 import logging
 
 from fastapi import Request
@@ -14,7 +9,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from pdf_extractext_extractor.errors import problem_response
+from pdf_extractext_extractor.constants import (
+    SERVICE_OVERLOADED,
+    TITLE_SERVICE_OVERLOADED,
+    TYPE_SERVICE_OVERLOADED,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +43,17 @@ class AdmissionMiddleware(BaseHTTPMiddleware):
             logger.warning(
                 "rechazo 503 por saturación (rechazos acumulados=%d)", self.rejections
             )
-            return problem_response(
-                503,
-                "SERVICE_OVERLOADED",
-                "Servicio saturado. Reintente más tarde.",
+            body = {
+                "type": TYPE_SERVICE_OVERLOADED,
+                "title": TITLE_SERVICE_OVERLOADED,
+                "status": 503,
+                "detail": "Servicio saturado. Reintente más tarde.",
+                "code": SERVICE_OVERLOADED,
+            }
+            return Response(
+                content=json.dumps(body),
+                status_code=503,
+                media_type="application/problem+json",
                 headers={"Retry-After": str(self.retry_after)},
             )
 
