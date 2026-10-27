@@ -1,8 +1,8 @@
 """POST /extract: contrato de 5 campos, Markdown y errores problem+json.
 
 400 INVALID_REQUEST / 422 INVALID_PDF_CONTENT / 500 INTERNAL_ERROR /
-503 SERVICE_OVERLOADED. Los monkeypatch apuntan al símbolo importado a nivel
-de módulo en `pdf_extractext_extractor.extraction`.
+503 SERVICE_OVERLOADED. Los monkeypatch apuntan al adaptador concreto usado
+por el servicio inyectado.
 """
 
 import hashlib
@@ -23,7 +23,7 @@ EXPECTED_SUCCESS_KEYS = {
     "page_count",
 }
 
-EXTRACTOR_PATCH_TARGET = "pdf_extractext_extractor.extraction.extract_pdf_data"
+EXTRACTOR_PATCH_TARGET = "pdf_extractext_extractor.domain.extractor.PyMuPDFExtractor.extract"
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ class TestExtractInvalidPdfContent:
         valid_pdf_multipart: dict,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        def _raise_invalid(_pdf_bytes: bytes) -> None:
+        def _raise_invalid(self, _pdf_bytes: bytes):
             raise InvalidPDFContentError("El contenido recibido no es un PDF válido")
 
         monkeypatch.setattr(EXTRACTOR_PATCH_TARGET, _raise_invalid)
@@ -169,7 +169,7 @@ class TestExtractInternalError:
         valid_pdf_multipart: dict,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        def _raise_internal(_pdf_bytes: bytes) -> None:
+        def _raise_internal(self, _pdf_bytes: bytes):
             raise InternalProcessingError("Fallo inesperado procesando el PDF")
 
         monkeypatch.setattr(EXTRACTOR_PATCH_TARGET, _raise_internal)
@@ -200,7 +200,7 @@ class TestForbiddenStatusCodes:
         monkeypatch: pytest.MonkeyPatch,
         forbidden_status: int,
     ) -> None:
-        def _raise_domain(_pdf_bytes: bytes) -> None:
+        def _raise_domain(self, _pdf_bytes: bytes):
             raise InvalidPDFContentError("PDF inválido")
 
         monkeypatch.setattr(EXTRACTOR_PATCH_TARGET, _raise_domain)

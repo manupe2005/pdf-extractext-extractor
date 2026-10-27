@@ -4,11 +4,13 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from pdf_extractext_extractor.admission import AdmissionMiddleware
+from pdf_extractext_extractor.checksum import SHA256ChecksumCalculator
+from pdf_extractext_extractor.config import settings
 from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
 )
-from pdf_extractext_extractor.config import settings
+from pdf_extractext_extractor.domain.extractor import PyMuPDFExtractor
 from pdf_extractext_extractor.errors import (
     InvalidRequest,
     internal_processing_error_handler,
@@ -16,7 +18,7 @@ from pdf_extractext_extractor.errors import (
     invalid_request_handler,
     request_validation_handler,
 )
-from pdf_extractext_extractor.extraction import router as extraction_router
+from pdf_extractext_extractor.extraction import ExtractionService, router as extraction_router
 
 
 def create_app() -> FastAPI:
@@ -45,6 +47,12 @@ def create_app() -> FastAPI:
     @app.get("/readyz", tags=["Health"])
     def readyz() -> dict[str, str]:
         return {"status": "ok"}
+
+    # Composition Root: instanciar y wirear dependencias
+    app.state.extraction_service = ExtractionService(
+        extractor=PyMuPDFExtractor(),
+        checksum_calculator=SHA256ChecksumCalculator(),
+    )
 
     app.include_router(extraction_router)
     return app

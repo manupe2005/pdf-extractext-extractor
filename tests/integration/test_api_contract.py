@@ -23,7 +23,7 @@ from pdf_extractext_extractor.domain.exceptions import (
 )
 from pdf_extractext_extractor.main import create_app
 
-EXTRACTOR_PATCH_TARGET = "pdf_extractext_extractor.extraction.extract_pdf_data"
+EXTRACTOR_PATCH_TARGET = "pdf_extractext_extractor.domain.extractor.PyMuPDFExtractor.extract"
 EXPECTED_SUCCESS_KEYS = {
     "filename",
     "extracted_text",
@@ -120,7 +120,7 @@ class TestErrorMatrix:
         valid_pdf_multipart: dict[str, Any],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        def _raise_invalid(_pdf_bytes: bytes) -> None:
+        def _raise_invalid(self, _pdf_bytes: bytes):
             raise InvalidPDFContentError("El contenido recibido no es un PDF válido")
 
         monkeypatch.setattr(EXTRACTOR_PATCH_TARGET, _raise_invalid)
@@ -137,7 +137,7 @@ class TestErrorMatrix:
         valid_pdf_multipart: dict[str, Any],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        def _raise_internal(_pdf_bytes: bytes) -> None:
+        def _raise_internal(self, _pdf_bytes: bytes):
             raise InternalProcessingError("Fallo inesperado procesando el PDF")
 
         monkeypatch.setattr(EXTRACTOR_PATCH_TARGET, _raise_internal)

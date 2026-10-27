@@ -1,8 +1,18 @@
-"""Recepción del PDF por multipart/form-data en memoria y POST /extract.
+"""Recepción del PDF por multipart/form-data: POST /extract (Issue #2).
 
-El cuerpo se acota con `MAX_UPLOAD_BYTES` antes de parsear y nunca toca el
-disco. Contrato 200: {filename, extracted_text, checksum, content, page_count}
-con `extracted_text == content` (mismo string).
+El archivo llega en el campo `file`, se valida estructuralmente y se retiene
+100% en memoria, sin tocar el disco. El equivalente óptimo al `UploadFile`
+declarativo es leer el stream acotado por el límite defensivo y parsear con
+un parser multipart de spool infinito: la vía declarativa volcaría a disco
+los archivos de más de 1 MB (SpooledTemporaryFile) y no permite acotar el
+cuerpo antes de leerlo.
+
+Contrato final (Issue #5, C1 + TP):
+
+    200 -> {filename, extracted_text, checksum, content, page_count}
+           Regla estricta: extracted_text == content (mismo string).
+    400 -> {"code": "INVALID_REQUEST", "message": "<detalle>"}
+    422/500: traducidos desde el dominio por los handlers de main.py.
 """
 
 import math
@@ -12,23 +22,47 @@ from typing import Any
 from fastapi import APIRouter, Request
 from python_multipart.exceptions import MultipartParseError
 from python_multipart.multipart import parse_options_header
-from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 
-from pdf_extractext_extractor.checksum import compute_sha256
 from pdf_extractext_extractor.config import settings
 from pdf_extractext_extractor.errors import InvalidRequest
+from pdf_extractext_extractor.ports.interfaces import ChecksumCalculator, PDFExtractor
 
-from pdf_extractext_extractor.domain.extractor import extract_pdf_data
+# Re-exports para mantener compatibilidad con tests que puedan importar desde aquí
+from pdf_extractext_extractor.checksum import compute_sha256  # noqa: F401
+from pdf_extractext_extractor.domain.extractor import extract_pdf_data  # noqa: F401
 
 MULTIPART_CONTENT_TYPE = b"multipart/form-data"
 
 router = APIRouter()
 
 
+class ExtractionService:
+    """Servicio de aplicación que orquesta extracción y checksum."""
+
+    def __init__(self, extractor: PDFExtractor, checksum_calculator: ChecksumCalculator) -> None:
+        self._extractor = extractor
+        self._checksum_calculator = checksum_calculator
+
+    def extract(self, pdf_bytes: bytes, filename: str | None) -> dict[str, Any]:
+        extracted = self._extractor.extract(pdf_bytes)
+        return {
+            "filename": filename,
+            "extracted_text": extracted.extracted_text,
+            "checksum": self._checksum_calculator.calculate(pdf_bytes),
+            "content": extracted.extracted_text,
+            "page_count": extracted.page_count,
+        }
+
+
 class _InMemoryMultiPartParser(MultiPartParser):
-    """Parser con spool infinito: el cuerpo ya viene acotado, nada va a disco."""
+    """Parser multipart con retención garantizada 100% en memoria.
+
+    Starlette vuelca los archivos a disco en cuanto superan 1 MB; aquí el
+    spool nunca rueda porque el cuerpo ya quedó acotado por el límite
+    defensivo antes de empezar a parsear.
+    """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -69,13 +103,28 @@ async def _parse_multipart_form(request: Request) -> FormData:
     try:
         return await parser.parse()
     except (MultiPartException, MultipartParseError) as exc:
-        # Sin esto Starlette no traduce el multipart corrupto y sería un 500.
+        # MultiPartException: límites del parser (demasiados campos, partes
+        # gigantes, Content-Disposition sin name). MultipartParseError: cuerpo
+        # corrupto; Starlette no la traduce, sin esto sería un 500.
         raise InvalidRequest(f"Multipart malformado: {exc}") from exc
+
+
+def get_extraction_service(request: Request) -> ExtractionService:
+    service = getattr(request.app.state, "extraction_service", None)
+    if service is None:
+        raise RuntimeError("ExtractionService no inicializado en app.state")
+    return service
 
 
 @router.post("/extract")
 async def extract(request: Request) -> dict[str, Any]:
-    """Recibe el PDF, extrae el Markdown y devuelve el contrato de 5 campos."""
+    """Orquesta recepción -> extracción de texto -> checksum (C1 + TP).
+
+    Devuelve el contrato combinado con exactamente cinco campos; los errores
+    del dominio (InvalidPDFContentError / InternalProcessingError) se traducen
+    en los exception handlers registrados en main.py.
+    """
+    service = get_extraction_service(request)
     _reject_oversized_declared_body(request)
     form = await _parse_multipart_form(request)
 
@@ -85,17 +134,7 @@ async def extract(request: Request) -> dict[str, Any]:
     if not isinstance(upload, UploadFile):
         raise InvalidRequest("El campo 'file' debe contener un archivo.")
     pdf_bytes = await upload.read()
-    filename = upload.filename
-    await upload.close()
     if not pdf_bytes:
         raise InvalidRequest("El archivo está vacío.")
 
-    # En threadpool: la extracción es CPU-bound y no debe bloquear el event loop.
-    extracted = await run_in_threadpool(extract_pdf_data, pdf_bytes)
-    return {
-        "filename": filename,
-        "extracted_text": extracted.extracted_text,
-        "checksum": compute_sha256(pdf_bytes),
-        "content": extracted.extracted_text,
-        "page_count": extracted.page_count,
-    }
+    return service.extract(pdf_bytes, upload.filename)
