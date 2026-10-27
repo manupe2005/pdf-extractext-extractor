@@ -1,7 +1,8 @@
 """Recepción multipart 100% en memoria: POST /extract.
 
-Contrato: 200 con {filename, extracted_text, checksum, content, page_count}
-(donde extracted_text == content). 400 con {"code":"INVALID_REQUEST","message":"..."}
+Uso de parser personalizado para evitar el spool a disco de Starlette (>1MB).
+Contrato: 200 {filename, extracted_text, checksum, content, page_count}
+(extracted_text == content). 400 {"code":"INVALID_REQUEST","message":"..."}
 para fallos estructurales; 422/500 desde el dominio vía exception handlers.
 """
 
