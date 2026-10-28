@@ -9,13 +9,19 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /uvx /bin/
 
 WORKDIR /app
 
+# Precompilar .pyc y usar cache de uv para acelerar arranque/rebuilds
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
 # Capas de dependencias primero para aprovechar el cache.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
 
 COPY src ./src
-# Wheel real en site-packages: un editable apuntaría a /app/src, ausente en runtime.
-RUN uv sync --locked --no-dev --no-editable
+# Wheel real en site-packages
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-editable
 
 # ---- Stage 2: runtime ----
 FROM python:3.12-slim
