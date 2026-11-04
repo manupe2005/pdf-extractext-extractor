@@ -17,6 +17,9 @@ SERVICE_PORT = 8001
 KV_CONFIG_PREFIX = "pdf-extractext/config/extraction/"
 TRAEFIK_ROUTER = "extraction"
 TRAEFIK_HOST = "extraction.pdf-extractext.localhost"
+TRAEFIK_SERVICE_PORT_KEY = (
+    f"traefik.http.services.{TRAEFIK_ROUTER}.loadbalancer.server.port"
+)
 
 
 class ConsulError(RuntimeError):
@@ -202,10 +205,7 @@ def traefik_tags(port: int = SERVICE_PORT) -> list[str]:
         "traefik.enable=true",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.rule=Host(`{TRAEFIK_HOST}`)",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.entrypoints=internal",
-        (
-            f"traefik.http.services.{TRAEFIK_ROUTER}.loadbalancer.server.port="
-            f"{port}"
-        ),
+        f"{TRAEFIK_SERVICE_PORT_KEY}={port}",
     ]
 
 
@@ -214,9 +214,7 @@ def traefik_meta(version: str, commit: str, port: int = SERVICE_PORT) -> dict[st
         "traefik.enable": "true",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.rule": f"Host(`{TRAEFIK_HOST}`)",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.entrypoints": "internal",
-        (
-            f"traefik.http.services.{TRAEFIK_ROUTER}.loadbalancer.server.port"
-        ): str(port),
+        TRAEFIK_SERVICE_PORT_KEY: str(port),
         "version": version,
         "commit": commit,
     }

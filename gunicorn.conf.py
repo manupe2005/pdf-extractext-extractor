@@ -106,6 +106,7 @@ def _registration_payload(address: str) -> dict:
     )
 
 
+# when_ready corre solo en el master: registrar aquí evita duplicados por worker.
 def when_ready(server) -> None:
     """Registra la instancia una sola vez desde el master."""
     global _registered_service_id
@@ -114,7 +115,7 @@ def when_ready(server) -> None:
 
     client = discovery.ConsulClient()
     try:
-        address = discovery.resolve_local_address(client.http_addr)
+        address = discovery.resolve_local_address(getattr(client, "http_addr", None))
     except discovery.ConsulError as exc:
         logger.warning("No se pudo resolver la IP local para Consul: %s", exc)
         return
