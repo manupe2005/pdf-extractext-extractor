@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 64 * 1024 * 1024
     max_concurrency: int = 1
     retry_after_seconds: int = 1
+    consul_enabled: bool = False
+    consul_http_addr: str = "http://127.0.0.1:8500"
+    consul_http_token: str | None = None
+    consul_http_timeout: float = 2.0
 
 
 settings = Settings()
