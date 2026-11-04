@@ -17,6 +17,13 @@ graceful_timeout = 30
 SERVICE_PORT = 8001
 REGISTER_ATTEMPTS = 3
 RETRY_BASE_SECONDS = 0.5
+KV_PREFIX = discovery.KV_CONFIG_PREFIX
+KV_KEYS = ("MAX_UPLOAD_BYTES", "MAX_CONCURRENCY", "RETRY_AFTER_SECONDS")
+KV_MINIMUMS = {
+    "MAX_UPLOAD_BYTES": 1,
+    "MAX_CONCURRENCY": 1,
+    "RETRY_AFTER_SECONDS": 0,
+}
 _registered_service_id: str | None = None
 
 
@@ -35,6 +42,58 @@ def _service_version() -> str:
 
 def _service_commit() -> str:
     return os.getenv("GIT_COMMIT") or os.getenv("COMMIT") or "unknown"
+
+
+def _kv_lookup(values: dict[str, str], name: str) -> str | None:
+    candidates = (
+        f"{KV_PREFIX}{name}",
+        f"{KV_PREFIX}{name.lower()}",
+        name,
+        name.lower(),
+    )
+    for key in candidates:
+        if key in values:
+            return values[key]
+    return None
+
+
+def _parse_kv_int(name: str, raw: str) -> int | None:
+    try:
+        value = int(raw.strip())
+    except (AttributeError, ValueError):
+        return None
+    return value if value >= KV_MINIMUMS[name] else None
+
+
+def on_starting(server) -> None:
+    """Carga la configuración KV antes del fork de workers."""
+    if not _consul_enabled():
+        return
+
+    try:
+        values = discovery.ConsulClient().kv_list(KV_PREFIX)
+    except discovery.ConsulError as exc:
+        logger.warning("No se pudo leer la configuración KV de Consul: %s", exc)
+        return
+
+    if not values:
+        logger.warning(
+            "Consul KV no devolvió valores en %s; se usan defaults.", KV_PREFIX
+        )
+        return
+
+    for name in KV_KEYS:
+        if name in os.environ:
+            continue
+        raw = _kv_lookup(values, name)
+        if raw is None:
+            continue
+        parsed = _parse_kv_int(name, raw)
+        if parsed is None:
+            logger.warning("Valor KV inválido para %s: %r", name, raw)
+            continue
+        # on_starting corre antes del fork: los workers heredan estas variables.
+        os.environ[name] = str(parsed)
 
 
 def _registration_payload(address: str) -> dict:
