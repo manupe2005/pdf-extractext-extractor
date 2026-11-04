@@ -1,7 +1,10 @@
-.PHONY: test smoke
+.PHONY: test test-cov smoke
 
 test:
 	uv run pytest -q
+
+test-cov:
+	uv run pytest -q --cov
 
 # Smoke de liveness contra el contenedor con límites aplicados.
 smoke:

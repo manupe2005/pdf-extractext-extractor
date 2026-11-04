@@ -16,6 +16,7 @@ dependencies = [
 dev = [
     "pytest>=8.4.0",
     "httpx>=0.28.0",
+    "pytest-cov>=7.1.0",
 ]
 
 [build-system]
@@ -27,3 +28,10 @@ packages = ["src/pdf_extractext_extractor"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["pdf_extractext_extractor"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

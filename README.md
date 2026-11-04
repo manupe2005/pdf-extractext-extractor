@@ -5,7 +5,8 @@ texto con PyMuPDF y lo devuelve convertido a **Markdown estructurado**, todo
 100% en memoria (cero escrituras a disco en el hot path).
 
 **Estado actual:** funcional — extracción + checksum SHA-256, control de
-admisión con backpressure y probes de liveness/readiness. Los documentos de
+admisión con backpressure, probes de liveness/readiness e integración con
+Consul (registro, health y configuración KV) para Traefik. Los documentos de
 `tasks/` corresponden al plan de bootstrap original (histórico).
 
 ## Requisitos
@@ -21,16 +22,69 @@ La configuración se define mediante variables de entorno (ver `src/pdf_extracte
 | ------------- | --------------------------- | -------------------- |
 | `APP_NAME`    | `pdf-extractext-extractor`  | Nombre del servicio  |
 | `APP_VERSION` | `0.1.0`                     | Versión              |
+| `GIT_COMMIT`  | `unknown`                   | Commit publicado en `Meta` de Consul |
 | `PORT`        | `8001`                      | Puerto de escucha (bind de Gunicorn) |
 | `MAX_UPLOAD_BYTES` | `67108864`              | Límite defensivo del cuerpo de la petición (bytes) |
 | `MAX_CONCURRENCY` | `1`                      | Extracciones simultáneas admitidas **por proceso/worker**; el exceso recibe 503 inmediato |
 | `RETRY_AFTER_SECONDS` | `1`                 | Valor del header `Retry-After` en los rechazos 503 |
+| `WEB_CONCURRENCY` | `1`                     | Workers de Gunicorn (default `1`) |
+| `GUNICORN_BACKLOG` | `64`                   | Backlog acotado del socket de Gunicorn |
+| `CONSUL_ENABLED` | `false`                  | Activa el registro en Consul y la lectura de KV |
+| `CONSUL_HTTP_ADDR` | `http://127.0.0.1:8500` | URL base del agente de Consul |
+| `CONSUL_HTTP_TOKEN` | vacío                  | Token ACL; se envía como `X-Consul-Token` en todas las llamadas |
+| `CONSUL_HTTP_TIMEOUT` | `2`                  | Timeout de las llamadas HTTP a Consul (segundos) |
 
 Gunicorn (servidor): `WEB_CONCURRENCY` (workers, default `1`) y
 `GUNICORN_BACKLOG` (backlog de socket acotado, default `64`) en
 `gunicorn.conf.py`. La admisión total por contenedor es
 `WEB_CONCURRENCY × MAX_CONCURRENCY` (1 × 1 = 1 con los defaults, dimensionado
 para 1 CPU / 1 GB porque la extracción es CPU-bound).
+
+## Integración con Consul y Traefik
+
+El cliente vive en `src/pdf_extractext_extractor/discovery.py` y usa solo la
+librería estándar (`urllib.request`, `socket`, `json`, `base64`): no agrega
+dependencias de runtime. Todas las llamadas envían `X-Consul-Token` cuando
+`CONSUL_HTTP_TOKEN` está definido y respetan `CONSUL_HTTP_TIMEOUT`.
+
+Flujo de registro:
+
+1. `on_starting` corre en el master **antes de forkear** los workers. Lee
+   `GET /v1/kv/pdf-extractext/config/extraction/?recurse` y aplica
+   `MAX_UPLOAD_BYTES`, `MAX_CONCURRENCY` y `RETRY_AFTER_SECONDS` con
+   precedencia **env > KV > default**. Los workers heredan el entorno.
+2. `when_ready` registra una sola vez con
+   `PUT /v1/agent/service/register`. El ID es `extraction-<hostname>`, la
+   `Address` se obtiene con un socket UDP hacia `CONSUL_HTTP_ADDR` (nunca se
+   hardcodea localhost), el `Port` es `8001` y el check apunta a
+   `http://<address>:8001/readyz` con `Interval: 10s`, `Timeout: 2s` y
+   `DeregisterCriticalServiceAfter: 1m`.
+3. `on_exit` ejecuta
+   `PUT /v1/agent/service/deregister/<ID>` desde el master.
+
+Los hooks se registran en el master de Gunicorn y no en el `lifespan` de
+FastAPI para evitar registros duplicados cuando `WEB_CONCURRENCY > 1`. Si
+Consul está caído, el arranque continúa: el registro reintenta con backoff y
+la lectura de KV cae a los defaults con un warning.
+
+Tags publicados (se replican en `Meta` junto con `version` y `commit`):
+
+```
+traefik.enable=true
+traefik.http.routers.extraction.rule=Host(`extraction.pdf-extractext.localhost`)
+traefik.http.routers.extraction.entrypoints=internal
+traefik.http.services.extraction.loadbalancer.server.port=8001
+```
+
+Ejemplo de arranque con Consul habilitado:
+
+```bash
+CONSUL_ENABLED=true \
+CONSUL_HTTP_ADDR=http://consul:8500 \
+CONSUL_HTTP_TOKEN=mi-token \
+GIT_COMMIT=$(git rev-parse --short HEAD) \
+uv run gunicorn pdf_extractext_extractor.main:app -c gunicorn.conf.py
+```
 
 ## API
 
@@ -96,8 +150,15 @@ curl http://localhost:8001/health
 ## Tests
 
 ```bash
-uv run pytest
+# Gate único del proyecto (unitarios + integración)
+make test
+
+# Cobertura (el umbral mínimo es 80 %)
+uv run pytest -q --cov
 ```
+
+`make test` ejecuta `uv run pytest -q`; `pytest-cov` es una dependencia de
+desarrollo y el umbral se configura en `pyproject.toml`.
 
 ## Docker
 
@@ -120,14 +181,16 @@ docker compose up -d --wait
 ## Estructura
 
 ```
-├── pyproject.toml                    # Dependencias y metadatos (uv)
+├── pyproject.toml                    # Dependencias, pytest y umbral de cobertura
+├── .env.example                      # Variables de entorno documentadas
 ├── Dockerfile                        # Multi-stage, no-root, healthcheck
 ├── docker-compose.yml                # Smoke local: límites 1 CPU / 1 GB, sin ports
-├── gunicorn.conf.py                  # Workers por env, backlog acotado
-├── Makefile                          # test / smoke
+├── gunicorn.conf.py                  # Workers, hooks Consul y KV antes del fork
+├── Makefile                          # test / test-cov / smoke
 ├── src/
 │   └── pdf_extractext_extractor/
 │       ├── config.py                 # Settings por variables de entorno
+│       ├── discovery.py              # Cliente Consul stdlib + payload Traefik
 │       ├── admission.py              # Control de admisión 503 + Retry-After
 │       ├── checksum.py               # SHA-256 del PDF
 │       ├── errors.py                 # Errores RFC 9457 (400 / 422 / 500 / 503)
@@ -139,5 +202,5 @@ docker compose up -d --wait
 ├── docs/
 │   ├── adr/                          # Decisiones de arquitectura
 │   └── performance-issue-9.md        # Mediciones de CPU/RAM bajo carga
-└── tests/                            # unitarios (api/, domain/) e integration/
+└── tests/                            # unitarios, hooks Gunicorn, KV e integration/
 ```
