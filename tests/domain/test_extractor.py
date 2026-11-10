@@ -7,7 +7,7 @@ from pdf_extractext_extractor.domain.exceptions import (
     InternalProcessingError,
     InvalidPDFContentError,
 )
-from pdf_extractext_extractor.domain.extractor import extract_pdf_data
+from pdf_extractext_extractor.domain.extractor import PyMuPDFExtractor, extract_pdf_data
 
 
 # ---------------------------------------------------------------------------
@@ -205,3 +205,13 @@ class TestMarkdownConversion:
         result = extract_pdf_data(image_only_pdf)
 
         assert result.extracted_text == ""
+
+
+class TestPageLimit:
+    def test_pdf_exceeding_max_pages_raises_invalid_content_error(
+        self, multi_page_text_pdf: bytes
+    ) -> None:
+        # multi_page_text_pdf tiene 3 páginas; con max_pages=2 debe ser rechazado
+        extractor = PyMuPDFExtractor(max_pages=2)
+        with pytest.raises(InvalidPDFContentError, match="supera el máximo permitido"):
+            extractor.extract(multi_page_text_pdf)

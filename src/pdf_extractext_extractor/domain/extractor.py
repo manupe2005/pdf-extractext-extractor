@@ -21,6 +21,9 @@ from pdf_extractext_extractor.domain.exceptions import (
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_MAX_PAGE_COUNT: int = 500
+
+
 @dataclass(frozen=True)
 class ExtractedPDFData:
     """Resultado de la extracción de un PDF."""
@@ -31,6 +34,9 @@ class ExtractedPDFData:
 
 class PyMuPDFExtractor:
     """Adaptador concreto que implementa PDFExtractor usando PyMuPDF."""
+
+    def __init__(self, max_pages: int = DEFAULT_MAX_PAGE_COUNT) -> None:
+        self.max_pages = max_pages
 
     def extract(self, pdf_bytes: bytes) -> ExtractedPDFData:
         try:
@@ -45,6 +51,11 @@ class PyMuPDFExtractor:
                 except Exception:
                     raise InvalidPDFContentError(
                         "El contenido recibido no es un PDF válido o procesable"
+                    )
+
+                if page_count > self.max_pages:
+                    raise InvalidPDFContentError(
+                        f"El PDF supera el máximo permitido de {self.max_pages} páginas ({page_count} páginas recibidas)"
                     )
 
                 if page_count == 0:
