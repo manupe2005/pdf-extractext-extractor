@@ -67,7 +67,9 @@ FastAPI para evitar registros duplicados cuando `WEB_CONCURRENCY > 1`. Si
 Consul está caído, el arranque continúa: el registro reintenta con backoff y
 la lectura de KV cae a los defaults con un warning.
 
-Tags publicados (se replican en `Meta` junto con `version` y `commit`):
+Tags publicados (las directivas de Traefik viven **solo en Tags** porque el
+provider `consulCatalog` las lee de ahí y Consul rechaza claves con puntos en
+`Meta`, que queda reducido a `version` y `commit`):
 
 ```
 traefik.enable=true
