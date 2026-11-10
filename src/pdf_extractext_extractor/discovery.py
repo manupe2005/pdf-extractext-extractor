@@ -210,11 +210,8 @@ def traefik_tags(port: int = SERVICE_PORT) -> list[str]:
 
 
 def traefik_meta(version: str, commit: str, port: int = SERVICE_PORT) -> dict[str, str]:
+    del port  # Consul Meta no admite claves con puntos; las reglas Traefik van en Tags.
     return {
-        "traefik.enable": "true",
-        f"traefik.http.routers.{TRAEFIK_ROUTER}.rule": f"Host(`{TRAEFIK_HOST}`)",
-        f"traefik.http.routers.{TRAEFIK_ROUTER}.entrypoints": "internal",
-        TRAEFIK_SERVICE_PORT_KEY: str(port),
         "version": version,
         "commit": commit,
     }

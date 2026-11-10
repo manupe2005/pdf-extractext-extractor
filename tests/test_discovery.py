@@ -270,16 +270,10 @@ class TestServiceRegistration:
             "traefik.http.services.extraction.loadbalancer.server.port=8001",
         ]
 
-    def test_traefik_meta_mirrors_tags_and_adds_version_commit(self) -> None:
+    def test_traefik_meta_contains_version_and_commit(self) -> None:
         meta = discovery.traefik_meta("1.2.3", "deadbeef")
 
         assert meta == {
-            "traefik.enable": "true",
-            "traefik.http.routers.extraction.rule": (
-                "Host(`extraction.pdf-extractext.localhost`)"
-            ),
-            "traefik.http.routers.extraction.entrypoints": "internal",
-            "traefik.http.services.extraction.loadbalancer.server.port": "8001",
             "version": "1.2.3",
             "commit": "deadbeef",
         }
