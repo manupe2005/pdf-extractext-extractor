@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from python_multipart.exceptions import MultipartParseError
 from python_multipart.multipart import parse_options_header
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 
@@ -134,4 +135,4 @@ async def extract(request: Request) -> dict[str, Any]:
     form = await _parse_multipart_form(request)
     upload = _get_required_file(form)
     pdf_bytes = await _read_non_empty_file(upload)
-    return service.extract(pdf_bytes, upload.filename)
+    return await run_in_threadpool(service.extract, pdf_bytes, upload.filename)
