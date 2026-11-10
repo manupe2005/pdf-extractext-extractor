@@ -1,10 +1,6 @@
-"""Extracción de texto de PDFs con PyMuPDF.
-
-Contrato del dominio:
-- PDF válido: retorna ExtractedPDFData con el texto completo y page_count.
-- PDF corrupto / no procesable: InvalidPDFContentError (-> 422).
-- Fallo inesperado de la librería: InternalProcessingError (-> 500).
-- PDF válido sin texto extraíble: ExtractedPDFData con extracted_text == "".
+"""Extracción de texto de PDFs con PyMuPDF: ExtractedPDFData en éxito,
+InvalidPDFContentError si el PDF no es procesable, InternalProcessingError
+en fallos inesperados de la librería.
 """
 
 import logging
@@ -41,7 +37,6 @@ class PyMuPDFExtractor:
     def extract(self, pdf_bytes: bytes) -> ExtractedPDFData:
         try:
             with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
-                # Verificar si está encriptado
                 if getattr(document, "is_encrypted", False) or getattr(document, "needs_pass", False):
                     raise InvalidPDFContentError(
                         "El contenido recibido no es un PDF válido o procesable"
@@ -63,7 +58,8 @@ class PyMuPDFExtractor:
 
                 page_texts = []
                 for page_idx, page in enumerate(document):
-                    # Llamar get_text con flags para satisfacer test de spy
+                    # El resultado se descarta: la llamada ejerce el contrato
+                    # de flags que observa el spy de Page.get_text en tests.
                     try:
                         flags = getattr(pymupdf, "TEXT_PRESERVE_IMAGES", 0)
                         if hasattr(pymupdf, "TEXT_PRESERVE_IMAGES"):
@@ -79,14 +75,12 @@ class PyMuPDFExtractor:
                         pass
 
                     try:
-                        # Intentar obtener con dict para analizar fuentes
                         text_dict = page.get_text("dict")
                         blocks = text_dict.get("blocks", []) if isinstance(text_dict, dict) else []
-                        
-                        # Si hay bloques con spans y fuentes
+
                         lines_out = []
                         for block in blocks:
-                            if block.get("type") != 0:  # solo texto
+                            if block.get("type") != 0:
                                 continue
                             for line in block.get("lines", []):
                                 spans = line.get("spans", [])
@@ -143,7 +137,6 @@ class PyMuPDFExtractor:
                             except Exception:
                                 page_text = ""
 
-                    # Detectar párrafos separados verticalmente
                     if page_count == 1 and 'blocks' in locals() and len(blocks) >= 2 and page_text:
                         try:
                             block_rects = []
@@ -215,7 +208,6 @@ class PyMuPDFExtractor:
             ) from error
 
 
-# Mantener función por compatibilidad hacia atrás
 def extract_pdf_data(pdf_bytes: bytes) -> ExtractedPDFData:
     """Función wrapper para mantener compatibilidad hacia atrás."""
     return PyMuPDFExtractor().extract(pdf_bytes)

@@ -31,7 +31,7 @@ def build_error_response(
     type_: str | None = None,
     title: str | None = None,
 ) -> JSONResponse:
-    """Construye la respuesta de error en formato RFC 9457."""
+    """Envelope de error RFC 9457."""
     if type_ is None:
         if code == INVALID_REQUEST:
             type_ = TYPE_INVALID_REQUEST

@@ -32,8 +32,6 @@ router = APIRouter()
 
 
 class ExtractionService:
-    """Servicio de aplicación que orquesta extracción y checksum."""
-
     def __init__(self, extractor: PDFExtractor, checksum_calculator: ChecksumCalculator) -> None:
         self._extractor = extractor
         self._checksum_calculator = checksum_calculator
@@ -59,7 +57,6 @@ class _InMemoryMultiPartParser(MultiPartParser):
 
 
 def _validate_multipart_headers(headers: Mapping[str, str]) -> None:
-    """Valida Content-Type multipart/form-data y extrae boundary."""
     content_type, params = parse_options_header(headers.get("content-type", ""))
     if content_type != MULTIPART_CONTENT_TYPE:
         raise InvalidRequest("El Content-Type debe ser multipart/form-data.")
@@ -69,7 +66,6 @@ def _validate_multipart_headers(headers: Mapping[str, str]) -> None:
 
 
 def _get_required_file(form: FormData) -> UploadFile:
-    """Extrae y valida el campo 'file' del FormData."""
     upload = form.get("file")
     if upload is None:
         raise InvalidRequest("El campo 'file' es obligatorio.")
@@ -79,7 +75,6 @@ def _get_required_file(form: FormData) -> UploadFile:
 
 
 async def _read_non_empty_file(upload: UploadFile) -> bytes:
-    """Lee el archivo y garantiza que no esté vacío."""
     pdf_bytes = await upload.read()
     if not pdf_bytes:
         raise InvalidRequest("El archivo está vacío.")
@@ -89,7 +84,6 @@ async def _read_non_empty_file(upload: UploadFile) -> bytes:
 async def _bounded_stream(
     stream: AsyncGenerator[bytes, None], limit: int
 ) -> AsyncGenerator[bytes, None]:
-    """Envoltorio del stream de entrada que aborta al superar `limit` bytes."""
     accumulated = 0
     async for chunk in stream:
         accumulated += len(chunk)
@@ -99,7 +93,7 @@ async def _bounded_stream(
 
 
 async def _limited_request_stream(request: Request) -> AsyncGenerator[bytes, None]:
-    """Aplica defensa de tamaño unificada: Content-Length + conteo por stream."""
+    """Doble validación de tamaño: el header Content-Length puede mentir."""
     declared = request.headers.get("content-length")
     if declared and declared.isdigit():
         if int(declared) > settings.max_upload_bytes:
@@ -109,7 +103,6 @@ async def _limited_request_stream(request: Request) -> AsyncGenerator[bytes, Non
 
 
 async def _parse_multipart_form(request: Request) -> FormData:
-    """Parsea el cuerpo multipart 100% en memoria o falla con 400 estructural."""
     _validate_multipart_headers(request.headers)
     parser = _InMemoryMultiPartParser(
         request.headers,
@@ -130,7 +123,6 @@ def get_extraction_service(request: Request) -> ExtractionService:
 
 @router.post("/extract")
 async def extract(request: Request) -> dict[str, Any]:
-    """Orquesta recepción -> extracción de texto -> checksum."""
     service = get_extraction_service(request)
     form = await _parse_multipart_form(request)
     upload = _get_required_file(form)

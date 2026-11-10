@@ -1,9 +1,7 @@
-"""Dominio puro: checksum SHA-256 sobre bytes originales (Issue #3).
+"""Checksum SHA-256 sobre los bytes originales del documento.
 
-Función sin efectos secundarios ni dependencias de infraestructura:
-recibe los bytes originales del documento (sin transformar) y devuelve
-su digest SHA-256 como string hexadecimal lowercase de 64 caracteres,
-formato contractual que espera el servicio de Persistence.
+El digest hexadecimal lowercase de 64 caracteres es el formato contractual
+que espera el servicio de Persistence.
 """
 
 import hashlib
@@ -16,7 +14,6 @@ class SHA256ChecksumCalculator:
         return hashlib.sha256(data).hexdigest()
 
 
-# Mantener función por compatibilidad hacia atrás
 def compute_sha256(data: bytes) -> str:
     """Función wrapper para mantener compatibilidad hacia atrás."""
     return SHA256ChecksumCalculator().calculate(data)

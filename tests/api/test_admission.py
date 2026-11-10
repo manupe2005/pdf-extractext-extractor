@@ -33,7 +33,7 @@ class TestAdmissionRejection:
             middleware = AdmissionMiddleware(
                 _never_called, max_concurrency=1, retry_after=3
             )
-            await middleware.semaphore.acquire()  # satura el único slot
+            await middleware.semaphore.acquire()
 
             response = await middleware.dispatch(
                 _request_for("/extract"), _never_called
@@ -97,7 +97,7 @@ class TestAdmissionRejection:
             middleware = AdmissionMiddleware(
                 downstream, max_concurrency=1, retry_after=1
             )
-            await middleware.semaphore.acquire()  # saturado
+            await middleware.semaphore.acquire()
 
             response = await middleware.dispatch(_request_for("/health"), downstream)
             assert response.status_code == 200

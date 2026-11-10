@@ -26,11 +26,6 @@ EXPECTED_SUCCESS_KEYS = {
 EXTRACTOR_PATCH_TARGET = "pdf_extractext_extractor.domain.extractor.PyMuPDFExtractor.extract"
 
 
-# ---------------------------------------------------------------------------
-# Caso 200: contrato combinado C1 + TP
-# ---------------------------------------------------------------------------
-
-
 class TestExtractSuccessContract:
     def test_returns_exactly_the_five_contract_fields(
         self, client: TestClient, valid_pdf_multipart: dict
@@ -68,11 +63,6 @@ class TestExtractSuccessContract:
         payload = client.post("/extract", **valid_pdf_multipart).json()
 
         assert payload["page_count"] == 1
-
-
-# ---------------------------------------------------------------------------
-# Caso 400: INVALID_REQUEST — multipart ausente / vacío
-# ---------------------------------------------------------------------------
 
 
 class TestExtractInvalidRequest:
@@ -117,11 +107,6 @@ class TestExtractInvalidRequest:
         assert payload["status"] == 400
 
 
-# ---------------------------------------------------------------------------
-# Caso 422: INVALID_PDF_CONTENT — traducción de InvalidPDFContentError
-# ---------------------------------------------------------------------------
-
-
 class TestExtractInvalidPdfContent:
     def test_domain_error_maps_to_422_with_envelope(
         self,
@@ -157,11 +142,6 @@ class TestExtractInvalidPdfContent:
         assert response.json()["code"] == "INVALID_PDF_CONTENT"
 
 
-# ---------------------------------------------------------------------------
-# Caso 500: INTERNAL_ERROR — traducción de InternalProcessingError
-# ---------------------------------------------------------------------------
-
-
 class TestExtractInternalError:
     def test_domain_error_maps_to_500_with_envelope(
         self,
@@ -184,11 +164,6 @@ class TestExtractInternalError:
             "detail": "Fallo inesperado procesando el PDF",
             "code": "INTERNAL_ERROR",
         }
-
-
-# ---------------------------------------------------------------------------
-# Garantías negativas del catálogo: jamás emitir 415, 404 ni 409
-# ---------------------------------------------------------------------------
 
 
 class TestForbiddenStatusCodes:

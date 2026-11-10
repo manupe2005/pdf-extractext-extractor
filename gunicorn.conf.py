@@ -108,7 +108,6 @@ def _registration_payload(address: str) -> dict:
 
 # when_ready corre solo en el master: registrar aquí evita duplicados por worker.
 def when_ready(server) -> None:
-    """Registra la instancia una sola vez desde el master."""
     global _registered_service_id
     if not _consul_enabled() or _registered_service_id is not None:
         return
@@ -141,7 +140,6 @@ def when_ready(server) -> None:
 
 
 def on_exit(server) -> None:
-    """Deregistra la instancia desde el master al apagar."""
     global _registered_service_id
     if _registered_service_id is None:
         return

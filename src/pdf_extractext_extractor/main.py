@@ -22,7 +22,6 @@ from pdf_extractext_extractor.extraction import ExtractionService, router as ext
 
 
 def create_app() -> FastAPI:
-    """Crea y configura la aplicación FastAPI."""
     app = FastAPI(title=settings.app_name, version=settings.app_version)
     app.add_middleware(
         AdmissionMiddleware,
@@ -48,7 +47,7 @@ def create_app() -> FastAPI:
     def readyz() -> dict[str, str]:
         return {"status": "ok"}
 
-    # Composition Root: instanciar y wirear dependencias
+    # Composition Root
     app.state.extraction_service = ExtractionService(
         extractor=PyMuPDFExtractor(),
         checksum_calculator=SHA256ChecksumCalculator(),

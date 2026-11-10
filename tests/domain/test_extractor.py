@@ -10,11 +10,6 @@ from pdf_extractext_extractor.domain.exceptions import (
 from pdf_extractext_extractor.domain.extractor import PyMuPDFExtractor, extract_pdf_data
 
 
-# ---------------------------------------------------------------------------
-# Escenario 1: PDF válido con texto -> extrae contenido y page_count
-# ---------------------------------------------------------------------------
-
-
 class TestValidPdfExtraction:
     def test_extracts_full_text_from_all_pages(
         self, multi_page_text_pdf: bytes
@@ -29,11 +24,6 @@ class TestValidPdfExtraction:
         result = extract_pdf_data(multi_page_text_pdf)
 
         assert result.page_count == 3
-
-
-# ---------------------------------------------------------------------------
-# Escenario 2: PDF corrupto -> InvalidPDFContentError (mapeable a 422)
-# ---------------------------------------------------------------------------
 
 
 class TestCorruptedPdf:
@@ -59,11 +49,6 @@ class TestCorruptedPdf:
         assert not isinstance(exc_info.value, InternalProcessingError)
 
 
-# ---------------------------------------------------------------------------
-# Escenario 2b: PDF protegido con contraseña -> InvalidPDFContentError (422)
-# ---------------------------------------------------------------------------
-
-
 class TestEncryptedPdf:
     def test_raises_invalid_pdf_content_error(self, encrypted_pdf: bytes) -> None:
         with pytest.raises(InvalidPDFContentError):
@@ -74,11 +59,6 @@ class TestEncryptedPdf:
             extract_pdf_data(encrypted_pdf)
 
         assert not isinstance(exc_info.value, InternalProcessingError)
-
-
-# ---------------------------------------------------------------------------
-# Escenario 3: fallo inesperado de PyMuPDF -> InternalProcessingError (500)
-# ---------------------------------------------------------------------------
 
 
 class TestUnexpectedLibraryFailure:
@@ -111,11 +91,6 @@ class TestUnexpectedLibraryFailure:
             extract_pdf_data(structurally_valid_pdf)
 
         assert exc_info.value.__cause__ is original
-
-
-# ---------------------------------------------------------------------------
-# Escenario 4: PDF válido sin texto extraíble (solo imágenes) -> ""
-# ---------------------------------------------------------------------------
 
 
 class TestImageOnlyPdf:
@@ -151,11 +126,6 @@ class TestImageBlocksAreSkipped:
         extract_pdf_data(multi_page_text_pdf)
 
         assert seen["flags"] & pymupdf.TEXT_PRESERVE_IMAGES == 0
-
-
-# ---------------------------------------------------------------------------
-# Escenario 5: conversión a Markdown estructurado
-# ---------------------------------------------------------------------------
 
 
 class TestMarkdownConversion:

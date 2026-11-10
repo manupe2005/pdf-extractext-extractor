@@ -40,11 +40,6 @@ def client() -> TestClient:
     return TestClient(create_app())
 
 
-# ---------------------------------------------------------------------------
-# Flujo feliz: la API recibe exactamente el contrato extendido
-# ---------------------------------------------------------------------------
-
-
 class TestHappyPath:
     def test_valid_pdf_with_request_id_returns_200_and_contract(
         self, client: TestClient, valid_pdf_multipart: dict[str, Any]
@@ -72,11 +67,6 @@ class TestHappyPath:
         pdf_bytes = valid_pdf_multipart["files"]["file"][1]
         payload = client.post("/extract", **valid_pdf_multipart).json()
         assert payload["checksum"] == hashlib.sha256(pdf_bytes).hexdigest()
-
-
-# ---------------------------------------------------------------------------
-# Matriz de errores: envelopes y status codes exactos
-# ---------------------------------------------------------------------------
 
 
 class TestErrorMatrix:
@@ -153,7 +143,7 @@ class TestErrorMatrix:
             middleware = AdmissionMiddleware(
                 lambda _req: None, max_concurrency=1, retry_after=3
             )
-            await middleware.semaphore.acquire()  # slot ocupado
+            await middleware.semaphore.acquire()
 
             scope = {
                 "type": "http",
@@ -179,11 +169,6 @@ class TestErrorMatrix:
             assert response.headers["retry-after"] == "3"
 
         asyncio.run(scenario())
-
-
-# ---------------------------------------------------------------------------
-# Propagación de X-Request-ID: comportamiento actual y garantía futura
-# ---------------------------------------------------------------------------
 
 
 class TestRequestIdPropagation:

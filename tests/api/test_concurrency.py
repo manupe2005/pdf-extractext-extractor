@@ -21,7 +21,6 @@ class TestEventLoopResponsiveness:
             time.sleep(2)
             raise InternalProcessingError("simulado")
 
-        # Parchear el extractor concreto usado por el servicio inyectado
         app = getattr(client, "app", None)
         if app is not None and hasattr(app.state, "extraction_service"):
             extractor = app.state.extraction_service._extractor
@@ -47,9 +46,7 @@ class TestEventLoopResponsiveness:
         t1.join(timeout=6)
         elapsed = time.perf_counter() - start
 
-        # r2 debe ser rechazada inmediatamente por admisión
         assert r2.status_code == 503
         assert r2.json()["code"] == "SERVICE_OVERLOADED"
         assert "Retry-After" in r2.headers
-        # No debe esperar a los 2s de la primera
         assert elapsed < 2.5
