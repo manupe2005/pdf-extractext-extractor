@@ -200,11 +200,15 @@ def resolve_local_address(consul_http_addr: str | None = None) -> str:
     return local_address
 
 
+CIRCUIT_BREAKER_MIDDLEWARE = "circuit-breaker@file"
+
+
 def traefik_tags(port: int = SERVICE_PORT) -> list[str]:
     return [
         "traefik.enable=true",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.rule=Host(`{TRAEFIK_HOST}`)",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.entrypoints=internal",
+        f"traefik.http.routers.{TRAEFIK_ROUTER}.middlewares={CIRCUIT_BREAKER_MIDDLEWARE}",
         f"{TRAEFIK_SERVICE_PORT_KEY}={port}",
     ]
 
@@ -214,6 +218,7 @@ def traefik_meta(version: str, commit: str, port: int = SERVICE_PORT) -> dict[st
         "traefik.enable": "true",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.rule": f"Host(`{TRAEFIK_HOST}`)",
         f"traefik.http.routers.{TRAEFIK_ROUTER}.entrypoints": "internal",
+        f"traefik.http.routers.{TRAEFIK_ROUTER}.middlewares": CIRCUIT_BREAKER_MIDDLEWARE,
         TRAEFIK_SERVICE_PORT_KEY: str(port),
         "version": version,
         "commit": commit,

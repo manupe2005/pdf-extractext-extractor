@@ -267,6 +267,7 @@ class TestServiceRegistration:
             "traefik.enable=true",
             "traefik.http.routers.extraction.rule=Host(`extraction.pdf-extractext.localhost`)",
             "traefik.http.routers.extraction.entrypoints=internal",
+            "traefik.http.routers.extraction.middlewares=circuit-breaker@file",
             "traefik.http.services.extraction.loadbalancer.server.port=8001",
         ]
 
@@ -279,6 +280,7 @@ class TestServiceRegistration:
                 "Host(`extraction.pdf-extractext.localhost`)"
             ),
             "traefik.http.routers.extraction.entrypoints": "internal",
+            "traefik.http.routers.extraction.middlewares": "circuit-breaker@file",
             "traefik.http.services.extraction.loadbalancer.server.port": "8001",
             "version": "1.2.3",
             "commit": "deadbeef",

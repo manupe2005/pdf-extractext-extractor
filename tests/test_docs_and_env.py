@@ -59,6 +59,8 @@ def test_readme_documents_kv_and_traefik() -> None:
         "env > KV > default",
         "traefik.http.routers.extraction.rule",
         "traefik.http.routers.extraction.entrypoints",
+        "traefik.http.routers.extraction.middlewares",
+        "circuit-breaker@file",
         "traefik.http.services.extraction.loadbalancer.server.port",
     ):
         assert token in README

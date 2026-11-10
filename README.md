@@ -73,8 +73,17 @@ Tags publicados (se replican en `Meta` junto con `version` y `commit`):
 traefik.enable=true
 traefik.http.routers.extraction.rule=Host(`extraction.pdf-extractext.localhost`)
 traefik.http.routers.extraction.entrypoints=internal
+traefik.http.routers.extraction.middlewares=circuit-breaker@file
 traefik.http.services.extraction.loadbalancer.server.port=8001
 ```
+
+El middleware `circuit-breaker@file` activa el Circuit Breaker de Traefik
+(definido como file provider en `pdf-extractext-infrastructure`): si el
+extractor satura con errores 5xx, Traefik corta el tráfico hacia él en vez
+de acumular peticiones que romperían el timeout de los clientes (30s en
+k6/Vegeta). Se combina con el backpressure local (503 + `Retry-After` de
+`AdmissionMiddleware`): el rechazo inmediato evita colas indefinidas y el
+Circuit Breaker evita mandar tráfico a una instancia que ya está fallando.
 
 Ejemplo de arranque con Consul habilitado:
 
