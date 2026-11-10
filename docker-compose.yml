@@ -8,6 +8,9 @@ services:
     # Sin `ports`: solo red interna.
     expose:
       - "8001"
+    # Endurecimiento: sin ganancia de privilegios (setuid/sudo) en el contenedor.
+    security_opt:
+      - no-new-privileges:true
     environment:
       WEB_CONCURRENCY: "1" # workers gunicorn
       MAX_CONCURRENCY: "1" # extracciones por worker

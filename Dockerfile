@@ -26,6 +26,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---- Stage 2: runtime ----
 FROM python:3.12-slim
 
+# Aplicar parches disponibles de Debian (Trivy: avisos OS tipo util-linux,
+# zlib1g pendientes de parche oficial se reducen al mínimo en build).
+# Debe correr como root, antes de crear el usuario no-root.
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 10001 appuser
 WORKDIR /app
 

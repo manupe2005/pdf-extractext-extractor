@@ -180,6 +180,29 @@ smoke/desarrollo local**: aplica límites explícitos (1 CPU / 1 GB) y no
 publica puertos (red interna). La integración del sistema completo vive
 en `pdf-extractext-infrastructure`.
 
+### Postura de seguridad (auditoría Trivy)
+
+Trivy reporta **0 vulnerabilidades** en las librerías Python del runtime
+(`fastapi`, `pymupdf`, `uvicorn`, `gunicorn`, `pydantic`). Los avisos
+restantes corresponden a paquetes del sistema (Debian 13: `util-linux`,
+`zlib1g`, ...) en estado *affected* sin parche oficial publicado por
+Debian. El riesgo residual se mitiga con:
+
+- **Runtime no-root**: `USER appuser` (UID 10001) en el Dockerfile.
+- **Sin escalada de privilegios**: `security_opt: no-new-privileges:true`
+  bloquea cualquier ganancia de privilegios (setuid/sudo) dentro del
+  contenedor.
+- **Aislamiento de red**: red interna de Docker (`internal: true`) sin
+  salida a internet ni puertos publicados al host.
+- **Parches al día**: el stage de runtime ejecuta
+  `apt-get update && apt-get upgrade -y` durante el build, aplicando todo
+  parche de Debian disponible al momento de generar la imagen (los avisos
+  que persistan son los que aún no tienen parche oficial).
+
+Sobre Distroless: no es viable para este servicio porque PyMuPDF requiere
+las librerías dinámicas de C de Debian para procesar PDFs en memoria; por
+eso el runtime es `python:3.12-slim` con las mitigaciones anteriores.
+
 ```bash
 # Smoke contra el contenedor (build + up + liveness + stats + down)
 make smoke
@@ -194,7 +217,7 @@ docker compose up -d --wait
 ```
 ├── pyproject.toml                    # Dependencias, pytest y umbral de cobertura
 ├── .env.example                      # Variables de entorno documentadas
-├── Dockerfile                        # Multi-stage, no-root, healthcheck
+├── Dockerfile                        # Multi-stage, no-root, healthcheck, parches Debian
 ├── docker-compose.yml                # Smoke local: límites 1 CPU / 1 GB, sin ports
 ├── gunicorn.conf.py                  # Workers, hooks Consul y KV antes del fork
 ├── Makefile                          # test / test-cov / smoke

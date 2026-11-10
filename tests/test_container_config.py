@@ -32,6 +32,15 @@ class TestDockerfile:
         assert match, "la imagen de uv debe estar fijada por versión"
         assert match.group(1) not in {"latest", ""}
 
+    def test_runtime_applies_debian_patches_before_user(self) -> None:
+        """Trivy: parches del SO se aplican como root en build del runtime,
+        antes de bajar a USER appuser."""
+        stage2 = DOCKERFILE[DOCKERFILE.rfind("FROM python:3.12-slim") :]
+        assert "apt-get update && apt-get upgrade -y" in stage2
+        assert "rm -rf /var/lib/apt/lists/*" in stage2
+        assert stage2.find("apt-get upgrade") < stage2.find("useradd")
+        assert "USER appuser" in stage2
+
 
 class TestComposeLocal:
     def test_applies_explicit_resource_limits(self) -> None:
@@ -51,3 +60,8 @@ class TestComposeLocal:
     def test_concurrency_is_parametrized(self) -> None:
         assert "WEB_CONCURRENCY" in COMPOSE
         assert "MAX_CONCURRENCY" in COMPOSE
+
+    def test_disables_privilege_escalation(self) -> None:
+        """no-new-privileges: bloquea setuid/sudo dentro del contenedor."""
+        assert "security_opt:" in COMPOSE
+        assert "no-new-privileges:true" in COMPOSE
